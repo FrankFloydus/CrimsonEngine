@@ -49,7 +49,11 @@
 #include "core/string/translation_server.h"
 #include "core/version.h"
 #include "editor/animation/animation_player_editor_plugin.h"
+
+#ifndef ASSET_STORE_DISABLED
 #include "editor/asset_library/asset_library_editor_plugin.h"
+#endif // ASSET_STORE_DISABLED
+
 #include "editor/audio/audio_stream_preview.h"
 #include "editor/audio/editor_audio_buses.h"
 #include "editor/debugger/debugger_editor_plugin.h"
@@ -175,7 +179,9 @@
 #include "scene/theme/theme_db.h"
 #include "servers/audio/audio_server.h"
 #include "servers/display/display_server.h"
+#ifndef NAVIGATION_2D_DISABLED
 #include "servers/navigation_2d/navigation_server_2d.h"
+#endif // NAVIGATION_2D_DISABLED
 #include "servers/navigation_3d/navigation_server_3d.h"
 #include "servers/rendering/rendering_device.h"
 #include "servers/rendering/rendering_server.h"
@@ -423,8 +429,10 @@ void EditorNode::shortcut_input(const Ref<InputEvent> &p_event) {
 			editor_main_screen->select(EditorMainScreen::EDITOR_GAME);
 		} else if (ED_IS_SHORTCUT("editor/editor_help", p_event)) {
 			emit_signal(SNAME("request_help_search"), "");
+#ifndef ASSET_STORE_DISABLED
 		} else if (ED_IS_SHORTCUT("editor/editor_assetlib", p_event) && AssetLibraryEditorPlugin::is_available()) {
 			editor_main_screen->select(EditorMainScreen::EDITOR_ASSETLIB);
+#endif // ASSET_STORE_DISABLED
 		} else if (ED_IS_SHORTCUT("editor/editor_next", p_event)) {
 			editor_main_screen->select_next();
 		} else if (ED_IS_SHORTCUT("editor/editor_prev", p_event)) {
@@ -599,6 +607,7 @@ void EditorNode::_update_from_settings() {
 	_update_translations();
 
 #ifdef DEBUG_ENABLED
+#ifndef NAVIGATION_2D_DISABLED
 	NavigationServer2D::get_singleton()->set_debug_navigation_edge_connection_color(GLOBAL_GET("debug/shapes/navigation/2d/edge_connection_color"));
 	NavigationServer2D::get_singleton()->set_debug_navigation_geometry_edge_color(GLOBAL_GET("debug/shapes/navigation/2d/geometry_edge_color"));
 	NavigationServer2D::get_singleton()->set_debug_navigation_geometry_face_color(GLOBAL_GET("debug/shapes/navigation/2d/geometry_face_color"));
@@ -607,6 +616,7 @@ void EditorNode::_update_from_settings() {
 	NavigationServer2D::get_singleton()->set_debug_navigation_enable_edge_connections(GLOBAL_GET("debug/shapes/navigation/2d/enable_edge_connections"));
 	NavigationServer2D::get_singleton()->set_debug_navigation_enable_edge_lines(GLOBAL_GET("debug/shapes/navigation/2d/enable_edge_lines"));
 	NavigationServer2D::get_singleton()->set_debug_navigation_enable_geometry_face_random_color(GLOBAL_GET("debug/shapes/navigation/2d/enable_geometry_face_random_color"));
+#endif // NAVIGATION_2D_DISABLED
 
 	NavigationServer3D::get_singleton()->set_debug_navigation_edge_connection_color(GLOBAL_GET("debug/shapes/navigation/3d/edge_connection_color"));
 	NavigationServer3D::get_singleton()->set_debug_navigation_geometry_edge_color(GLOBAL_GET("debug/shapes/navigation/3d/geometry_edge_color"));
@@ -3668,6 +3678,11 @@ void EditorNode::_menu_option_confirm(int p_option, bool p_confirmed) {
 
 		case PROJECT_OPEN_SETTINGS: {
 			project_settings_editor->popup_project_settings();
+		} break;
+
+		case PROJECT_MANAGE_PLUGINS: {
+			project_settings_editor->popup_project_settings(true);
+			project_settings_editor->set_plugins_page();
 		} break;
 
 		case PROJECT_FIND_IN_FILES: {
@@ -7840,9 +7855,11 @@ void EditorNode::_feature_profile_changed() {
 		if (!Engine::get_singleton()->is_recovery_mode_hint()) {
 			editor_main_screen->set_button_enabled(EditorMainScreen::EDITOR_GAME, !profile->is_feature_disabled(EditorFeatureProfile::FEATURE_GAME));
 		}
+#ifndef ASSET_STORE_DISABLED
 		if (AssetLibraryEditorPlugin::is_available()) {
 			editor_main_screen->set_button_enabled(EditorMainScreen::EDITOR_ASSETLIB, !profile->is_feature_disabled(EditorFeatureProfile::FEATURE_ASSET_LIB));
 		}
+#endif // ASSET_STORE_DISABLED
 	} else {
 		editor_dock_manager->set_dock_enabled(ImportDock::get_singleton(), true);
 		editor_dock_manager->set_dock_enabled(SignalsDock::get_singleton(), true);
@@ -7854,9 +7871,11 @@ void EditorNode::_feature_profile_changed() {
 		if (!Engine::get_singleton()->is_recovery_mode_hint()) {
 			editor_main_screen->set_button_enabled(EditorMainScreen::EDITOR_GAME, true);
 		}
+#ifndef ASSET_STORE_DISABLED
 		if (AssetLibraryEditorPlugin::is_available()) {
 			editor_main_screen->set_button_enabled(EditorMainScreen::EDITOR_ASSETLIB, true);
 		}
+#endif // ASSET_STORE_DISABLED
 	}
 
 	editor_dock_manager->update_docks_menu();
@@ -8036,6 +8055,7 @@ void EditorNode::_build_project_menu() {
 	project_menu->clear(false);
 
 	project_menu->add_shortcut(ED_GET_SHORTCUT("editor/project_settings"), PROJECT_OPEN_SETTINGS);
+	project_menu->add_shortcut(ED_GET_SHORTCUT("editor/manage_plugins"), PROJECT_MANAGE_PLUGINS);
 	project_menu->add_shortcut(ED_GET_SHORTCUT("editor/find_in_files"), PROJECT_FIND_IN_FILES);
 	project_menu->add_separator();
 
@@ -8937,6 +8957,7 @@ EditorNode::EditorNode() {
 	ED_SHORTCUT_AND_COMMAND("editor/file_quit", TTRC("Quit"), KeyModifierMask::CMD_OR_CTRL + Key::Q);
 
 	ED_SHORTCUT_AND_COMMAND("editor/project_settings", TTRC("Project Settings..."), Key::NONE, TTRC("Project Settings"));
+	ED_SHORTCUT_AND_COMMAND("editor/manage_plugins", TTRC("Plugins..."));
 	ED_SHORTCUT_AND_COMMAND("editor/find_in_files", TTRC("Find in Files..."), KeyModifierMask::CMD_OR_CTRL | KeyModifierMask::SHIFT | Key::F);
 
 	ED_SHORTCUT_AND_COMMAND("editor/export", TTRC("Export..."), Key::NONE, TTRC("Export"));
@@ -8975,13 +8996,17 @@ EditorNode::EditorNode() {
 	ED_SHORTCUT_AND_COMMAND("editor/editor_3d", TTRC("Open 3D Workspace"), KeyModifierMask::CTRL | Key::F2);
 	ED_SHORTCUT_AND_COMMAND("editor/editor_script", TTRC("Open Script Editor"), KeyModifierMask::CTRL | Key::F3);
 	ED_SHORTCUT_AND_COMMAND("editor/editor_game", TTRC("Open Game View"), KeyModifierMask::CTRL | Key::F4);
+#ifndef ASSET_STORE_DISABLED
 	ED_SHORTCUT_AND_COMMAND("editor/editor_assetlib", TTRC("Open Asset Store"), KeyModifierMask::CTRL | Key::F5);
+#endif // ASSET_STORE_DISABLED
 
 	ED_SHORTCUT_OVERRIDE("editor/editor_2d", "macos", KeyModifierMask::META | KeyModifierMask::CTRL | Key::KEY_1);
 	ED_SHORTCUT_OVERRIDE("editor/editor_3d", "macos", KeyModifierMask::META | KeyModifierMask::CTRL | Key::KEY_2);
 	ED_SHORTCUT_OVERRIDE("editor/editor_script", "macos", KeyModifierMask::META | KeyModifierMask::CTRL | Key::KEY_3);
 	ED_SHORTCUT_OVERRIDE("editor/editor_game", "macos", KeyModifierMask::META | KeyModifierMask::CTRL | Key::KEY_4);
+#ifndef ASSET_STORE_DISABLED
 	ED_SHORTCUT_OVERRIDE("editor/editor_assetlib", "macos", KeyModifierMask::META | KeyModifierMask::CTRL | Key::KEY_5);
+#endif // ASSET_STORE_DISABLED
 
 	ED_SHORTCUT_AND_COMMAND("editor/editor_next", TTRC("Open the next Editor"));
 	ED_SHORTCUT_AND_COMMAND("editor/editor_prev", TTRC("Open the previous Editor"));
@@ -9377,11 +9402,13 @@ EditorNode::EditorNode() {
 	TextEditor::register_editor();
 	TextShaderEditor::register_editor();
 
+#ifndef ASSET_STORE_DISABLED
 	if (AssetLibraryEditorPlugin::is_available()) {
 		add_editor_plugin(memnew(AssetLibraryEditorPlugin));
 	} else {
 		print_verbose("Asset Store not available (due to using Web editor, or SSL support disabled).");
 	}
+#endif // ASSET_STORE_DISABLED
 
 	// More visually meaningful to have this later.
 	add_editor_plugin(memnew(AnimationPlayerEditorPlugin));

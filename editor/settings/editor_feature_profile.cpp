@@ -47,7 +47,9 @@
 const char *EditorFeatureProfile::feature_names[FEATURE_MAX] = {
 	TTRC("3D Editor"),
 	TTRC("Script Editor"),
+#ifndef ASSET_STORE_DISABLED
 	TTRC("Asset Store"),
+#endif // ASSET_STORE_DISABLED
 	TTRC("Scene Tree Editing"),
 #ifndef DISABLE_DEPRECATED
 	TTRC("Node Dock (deprecated)"),
@@ -63,7 +65,9 @@ const char *EditorFeatureProfile::feature_names[FEATURE_MAX] = {
 const char *EditorFeatureProfile::feature_descriptions[FEATURE_MAX] = {
 	TTRC("Allows to view and edit 3D scenes."),
 	TTRC("Allows to edit scripts using the integrated script editor."),
+#ifndef ASSET_STORE_DISABLED
 	TTRC("Provides built-in access to the Asset Store."),
+#endif // ASSET_STORE_DISABLED
 	TTRC("Allows editing the node hierarchy in the Scene dock."),
 #ifndef DISABLE_DEPRECATED
 	TTRC("Allows to work with signals and groups of the node selected in the Scene dock."),
@@ -79,7 +83,9 @@ const char *EditorFeatureProfile::feature_descriptions[FEATURE_MAX] = {
 const char *EditorFeatureProfile::feature_identifiers[FEATURE_MAX] = {
 	"3d",
 	"script",
+#ifndef ASSET_STORE_DISABLED
 	"asset_lib",
+#endif // ASSET_STORE_DISABLED
 	"scene_tree",
 #ifndef DISABLE_DEPRECATED
 	"node_dock",
@@ -320,7 +326,9 @@ void EditorFeatureProfile::_bind_methods() {
 
 	BIND_ENUM_CONSTANT(FEATURE_3D);
 	BIND_ENUM_CONSTANT(FEATURE_SCRIPT);
+#ifndef ASSET_STORE_DISABLED
 	BIND_ENUM_CONSTANT(FEATURE_ASSET_LIB);
+#endif // ASSET_STORE_DISABLED
 	BIND_ENUM_CONSTANT(FEATURE_SCENE_TREE);
 #ifndef DISABLE_DEPRECATED
 	BIND_ENUM_CONSTANT(FEATURE_NODE_DOCK);

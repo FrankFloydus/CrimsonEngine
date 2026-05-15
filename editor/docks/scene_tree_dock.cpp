@@ -1604,8 +1604,12 @@ void SceneTreeDock::_tool_selected(int p_tool, bool p_confirm_override) {
 			} else {
 				switch (p_tool) {
 					case TOOL_CREATE_2D_SCENE:
+#ifndef _2D_DISABLED
 						new_node = memnew(Node2D);
 						break;
+#else
+						ERR_FAIL_MSG("2D scene roots are disabled in this build.");
+#endif // _2D_DISABLED
 					case TOOL_CREATE_3D_SCENE:
 						new_node = memnew(Node3D);
 						break;
@@ -1735,11 +1739,13 @@ void SceneTreeDock::_notification(int p_what) {
 			beginner_node_shortcuts = memnew(VBoxContainer);
 			node_shortcuts->add_child(beginner_node_shortcuts);
 
+#ifndef _2D_DISABLED
 			button_2d = memnew(Button);
 			beginner_node_shortcuts->add_child(button_2d);
 			button_2d->set_text(TTR("2D Scene"));
 			button_2d->set_button_icon(get_editor_theme_icon(SNAME("Node2D")));
 			button_2d->connect(SceneStringName(pressed), callable_mp(this, &SceneTreeDock::_tool_selected).bind(TOOL_CREATE_2D_SCENE, false));
+#endif // _2D_DISABLED
 
 			button_3d = memnew(Button);
 			beginner_node_shortcuts->add_child(button_3d);

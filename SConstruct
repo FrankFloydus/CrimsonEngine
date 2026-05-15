@@ -261,6 +261,8 @@ opts.Add(BoolVariable("vsproj", "Generate a Visual Studio solution", False))
 opts.Add("vsproj_name", "Name of the Visual Studio solution", "godot")
 opts.Add("import_env_vars", "A comma-separated list of environment variables to copy from the outer environment.", "")
 opts.Add(BoolVariable("disable_exceptions", "Force disabling exception handling code", True))
+opts.Add(BoolVariable("disable_2d", "Disable 2D gameplay nodes, resources, physics, and navigation", True))
+opts.Add(BoolVariable("disable_asset_store", "Disable the editor Asset Store and project manager asset library", True))
 opts.Add(BoolVariable("disable_3d", "Disable 3D nodes for a smaller executable", False))
 opts.Add(BoolVariable("disable_advanced_gui", "Disable advanced GUI nodes and behaviors", False))
 opts.Add(BoolVariable("disable_physics_2d", "Disable 2D physics nodes and server", False))
@@ -1075,6 +1077,12 @@ if env["disable_3d"]:
     env["disable_navigation_3d"] = True
     env["disable_physics_3d"] = True
     env["disable_xr"] = True
+if env["disable_2d"]:
+    env.Append(CPPDEFINES=["_2D_DISABLED"])
+    env["disable_navigation_2d"] = True
+    env["disable_physics_2d"] = True
+if env["disable_asset_store"]:
+    env.Append(CPPDEFINES=["ASSET_STORE_DISABLED"])
 if env["disable_advanced_gui"]:
     env.Append(CPPDEFINES=["ADVANCED_GUI_DISABLED"])
 if env["disable_physics_2d"]:

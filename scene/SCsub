@@ -13,7 +13,8 @@ SConscript("main/SCsub")
 SConscript("gui/SCsub")
 if not env["disable_3d"]:
     SConscript("3d/SCsub")
-SConscript("2d/SCsub")
+if not env["disable_2d"] or env.editor_build:
+    SConscript("2d/SCsub")
 SConscript("animation/SCsub")
 SConscript("audio/SCsub")
 SConscript("resources/SCsub")

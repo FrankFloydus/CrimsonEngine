@@ -153,6 +153,7 @@
 #include "scene/resources/shader_resource_format.h"
 #include "scene/resources/skeleton_profile.h"
 #include "scene/resources/sky.h"
+#include "scene/resources/sprite_frames.h"
 #include "scene/resources/style_box.h"
 #include "scene/resources/style_box_flat.h"
 #include "scene/resources/style_box_line.h"
@@ -165,6 +166,7 @@
 #include "scene/resources/texture_rd.h"
 #include "scene/resources/theme.h"
 #include "scene/resources/video_stream.h"
+#include "scene/resources/world_2d.h"
 #include "scene/theme/theme_db.h"
 #include "servers/display/display_server.h"
 #include "servers/rendering/rendering_server.h"
@@ -173,6 +175,7 @@
 #include "scene/resources/animated_texture.h"
 #endif
 
+#ifndef _2D_DISABLED
 // 2D
 #include "scene/2d/animated_sprite_2d.h"
 #include "scene/2d/audio_listener_2d.h"
@@ -206,7 +209,6 @@
 #include "scene/resources/2d/skeleton/skeleton_modification_2d_twoboneik.h"
 #include "scene/resources/2d/skeleton/skeleton_modification_stack_2d.h"
 #include "scene/resources/2d/tile_set.h"
-#include "scene/resources/world_2d.h"
 #ifndef DISABLE_DEPRECATED
 #include "scene/2d/parallax_background.h"
 #include "scene/2d/parallax_layer.h"
@@ -221,6 +223,7 @@
 #include "scene/resources/2d/navigation_mesh_source_geometry_data_2d.h"
 #include "scene/resources/2d/navigation_polygon.h"
 #endif // NAVIGATION_2D_DISABLED
+#endif // _2D_DISABLED
 
 #ifndef _3D_DISABLED
 #include "scene/3d/aim_modifier_3d.h"
@@ -786,7 +789,9 @@ void register_scene_types() {
 	SceneTree::add_idle_callback(CanvasItemMaterial::flush_changes);
 	CanvasItemMaterial::init_shaders();
 	GDREGISTER_CLASS(BlitMaterial);
+	GDREGISTER_CLASS(SpriteFrames);
 
+#ifndef _2D_DISABLED
 	/* REGISTER 2D */
 
 	GDREGISTER_CLASS(Node2D);
@@ -794,7 +799,6 @@ void register_scene_types() {
 	GDREGISTER_CLASS(CPUParticles2D);
 	GDREGISTER_CLASS(GPUParticles2D);
 	GDREGISTER_CLASS(Sprite2D);
-	GDREGISTER_CLASS(SpriteFrames);
 	GDREGISTER_CLASS(AnimatedSprite2D);
 	GDREGISTER_CLASS(Marker2D);
 	GDREGISTER_CLASS(Line2D);
@@ -869,6 +873,7 @@ void register_scene_types() {
 #endif // PHYSICS_2D_DISABLED
 
 	OS::get_singleton()->yield(); // may take time to init
+#endif // _2D_DISABLED
 
 	/* REGISTER RESOURCES */
 
@@ -1023,6 +1028,7 @@ void register_scene_types() {
 
 	OS::get_singleton()->yield(); // may take time to init
 
+#ifndef _2D_DISABLED
 	GDREGISTER_CLASS(AudioStreamPlayer2D);
 	GDREGISTER_CLASS(Curve2D);
 	GDREGISTER_CLASS(Path2D);
@@ -1039,12 +1045,13 @@ void register_scene_types() {
 	GDREGISTER_CLASS(ConvexPolygonShape2D);
 	GDREGISTER_CLASS(ConcavePolygonShape2D);
 #endif // PHYSICS_2D_DISABLED
+#endif // _2D_DISABLED
 
 #if !defined(NAVIGATION_2D_DISABLED) || !defined(NAVIGATION_3D_DISABLED)
 	GDREGISTER_CLASS(NavigationMesh);
 #endif // !defined(NAVIGATION_2D_DISABLED) || !defined(NAVIGATION_3D_DISABLED)
 
-#ifndef NAVIGATION_2D_DISABLED
+#if !defined(_2D_DISABLED) && !defined(NAVIGATION_2D_DISABLED)
 	GDREGISTER_CLASS(NavigationMeshSourceGeometryData2D);
 	GDREGISTER_CLASS(NavigationPolygon);
 	GDREGISTER_CLASS(NavigationRegion2D);
@@ -1067,7 +1074,7 @@ void register_scene_types() {
 #ifndef PHYSICS_2D_DISABLED
 	StaticBody2D::navmesh_parse_init();
 #endif // PHYSICS_2D_DISABLED
-#endif // NAVIGATION_2D_DISABLED
+#endif // !defined(_2D_DISABLED) && !defined(NAVIGATION_2D_DISABLED)
 
 #ifndef NAVIGATION_3D_DISABLED
 	// 3D nodes that support navmesh baking need to server register their source geometry parsers.
@@ -1099,12 +1106,16 @@ void register_scene_types() {
 	ClassDB::add_compatibility_class("DynamicFontData", "FontFile");
 #ifndef NAVIGATION_3D_DISABLED
 	ClassDB::add_compatibility_class("Navigation3D", "Node3D");
-	ClassDB::add_compatibility_class("Navigation2D", "Node2D");
 #endif // NAVIGATION_3D_DISABLED
+#ifndef _2D_DISABLED
+	ClassDB::add_compatibility_class("Navigation2D", "Node2D");
+#endif // _2D_DISABLED
 	ClassDB::add_compatibility_class("OpenSimplexNoise", "FastNoiseLite");
 	ClassDB::add_compatibility_class("ProximityGroup", "Node3D");
 	ClassDB::add_compatibility_class("ToolButton", "Button");
+#ifndef _2D_DISABLED
 	ClassDB::add_compatibility_class("YSort", "Node2D");
+#endif // _2D_DISABLED
 	// Portal and room occlusion was replaced by raster occlusion (OccluderInstance3D node).
 	ClassDB::add_compatibility_class("Portal", "Node3D");
 	ClassDB::add_compatibility_class("Room", "Node3D");
@@ -1116,7 +1127,9 @@ void register_scene_types() {
 
 	// Renamed in 4.0.
 	// Keep alphabetical ordering to easily locate classes and avoid duplicates.
+#ifndef _2D_DISABLED
 	ClassDB::add_compatibility_class("AnimatedSprite", "AnimatedSprite2D");
+#endif // _2D_DISABLED
 	ClassDB::add_compatibility_class("ARVRCamera", "XRCamera3D");
 	ClassDB::add_compatibility_class("ARVRController", "XRController3D");
 	ClassDB::add_compatibility_class("ARVRAnchor", "XRAnchor3D");
@@ -1142,8 +1155,10 @@ void register_scene_types() {
 	ClassDB::add_compatibility_class("GIProbeData", "VoxelGIData");
 	ClassDB::add_compatibility_class("GradientTexture", "GradientTexture1D");
 	ClassDB::add_compatibility_class("Light", "Light3D");
+#ifndef _2D_DISABLED
 	ClassDB::add_compatibility_class("Light2D", "PointLight2D");
 	ClassDB::add_compatibility_class("LineShape2D", "WorldBoundaryShape2D");
+#endif // _2D_DISABLED
 	ClassDB::add_compatibility_class("Listener", "AudioListener3D");
 	ClassDB::add_compatibility_class("MeshInstance", "MeshInstance3D");
 	ClassDB::add_compatibility_class("MultiMeshInstance", "MultiMeshInstance3D");
@@ -1154,18 +1169,22 @@ void register_scene_types() {
 	ClassDB::add_compatibility_class("NavigationRegion", "NavigationRegion3D");
 	ClassDB::add_compatibility_class("NavigationServer", "NavigationServer3D");
 #endif // NAVIGATION_3D_DISABLED
-#ifndef NAVIGATION_2D_DISABLED
+#if !defined(_2D_DISABLED) && !defined(NAVIGATION_2D_DISABLED)
 	ClassDB::add_compatibility_class("NavigationPolygonInstance", "NavigationRegion2D");
 	ClassDB::add_compatibility_class("Navigation2DServer", "NavigationServer2D");
-#endif // NAVIGATION_2D_DISABLED
+#endif // !defined(_2D_DISABLED) && !defined(NAVIGATION_2D_DISABLED)
 	ClassDB::add_compatibility_class("OmniLight", "OmniLight3D");
 	ClassDB::add_compatibility_class("PanoramaSky", "Sky");
 	ClassDB::add_compatibility_class("Particles", "GPUParticles3D");
+#ifndef _2D_DISABLED
 	ClassDB::add_compatibility_class("Particles2D", "GPUParticles2D");
+#endif // _2D_DISABLED
 	ClassDB::add_compatibility_class("ParticlesMaterial", "ParticleProcessMaterial");
 	ClassDB::add_compatibility_class("Path", "Path3D");
 	ClassDB::add_compatibility_class("PathFollow", "PathFollow3D");
+#ifndef _2D_DISABLED
 	ClassDB::add_compatibility_class("Position2D", "Marker2D");
+#endif // _2D_DISABLED
 	ClassDB::add_compatibility_class("Position3D", "Marker3D");
 	ClassDB::add_compatibility_class("ProceduralSky", "Sky");
 	ClassDB::add_compatibility_class("RemoteTransform", "RemoteTransform3D");
@@ -1176,7 +1195,9 @@ void register_scene_types() {
 	ClassDB::add_compatibility_class("SpatialGizmo", "Node3DGizmo");
 	ClassDB::add_compatibility_class("SpatialMaterial", "StandardMaterial3D");
 	ClassDB::add_compatibility_class("SpotLight", "SpotLight3D");
+#ifndef _2D_DISABLED
 	ClassDB::add_compatibility_class("Sprite", "Sprite2D");
+#endif // _2D_DISABLED
 	ClassDB::add_compatibility_class("StaticBody", "StaticBody3D");
 	ClassDB::add_compatibility_class("StreamTexture", "CompressedTexture2D");
 	ClassDB::add_compatibility_class("TextureProgress", "TextureProgressBar");
@@ -1185,18 +1206,20 @@ void register_scene_types() {
 	ClassDB::add_compatibility_class("Viewport", "SubViewport");
 	ClassDB::add_compatibility_class("VisibilityEnabler", "VisibleOnScreenEnabler3D");
 	ClassDB::add_compatibility_class("VisibilityNotifier", "VisibleOnScreenNotifier3D");
+#ifndef _2D_DISABLED
 	ClassDB::add_compatibility_class("VisibilityNotifier2D", "VisibleOnScreenNotifier2D");
+#endif // _2D_DISABLED
 	ClassDB::add_compatibility_class("VisibilityNotifier3D", "VisibleOnScreenNotifier3D");
 	ClassDB::add_compatibility_class("VisualServer", "RenderingServer");
 	ClassDB::add_compatibility_class("World", "World3D");
-#ifndef PHYSICS_2D_DISABLED
+#if !defined(_2D_DISABLED) && !defined(PHYSICS_2D_DISABLED)
 	ClassDB::add_compatibility_class("Physics2DDirectBodyState", "PhysicsDirectBodyState2D");
 	ClassDB::add_compatibility_class("Physics2DDirectSpaceState", "PhysicsDirectSpaceState2D");
 	ClassDB::add_compatibility_class("Physics2DServer", "PhysicsServer2D");
 	ClassDB::add_compatibility_class("Physics2DShapeQueryParameters", "PhysicsShapeQueryParameters2D");
 	ClassDB::add_compatibility_class("Physics2DTestMotionResult", "PhysicsTestMotionResult2D");
 	ClassDB::add_compatibility_class("RayShape2D", "SeparationRayShape2D");
-#endif // PHYSICS_2D_DISABLED
+#endif // !defined(_2D_DISABLED) && !defined(PHYSICS_2D_DISABLED)
 #ifndef PHYSICS_3D_DISABLED
 	ClassDB::add_compatibility_class("Area", "Area3D");
 	ClassDB::add_compatibility_class("BoxShape", "BoxShape3D");
@@ -1217,7 +1240,9 @@ void register_scene_types() {
 	ClassDB::add_compatibility_class("HingeJoint", "HingeJoint3D");
 	ClassDB::add_compatibility_class("Joint", "Joint3D");
 	ClassDB::add_compatibility_class("KinematicBody", "CharacterBody3D");
+#ifndef _2D_DISABLED
 	ClassDB::add_compatibility_class("KinematicBody2D", "CharacterBody2D");
+#endif // _2D_DISABLED
 	ClassDB::add_compatibility_class("KinematicCollision", "KinematicCollision3D");
 	ClassDB::add_compatibility_class("PhysicsBody", "PhysicsBody3D");
 	ClassDB::add_compatibility_class("PhysicalBone", "PhysicalBone3D");
@@ -1230,7 +1255,9 @@ void register_scene_types() {
 	ClassDB::add_compatibility_class("RayCast", "RayCast3D");
 	ClassDB::add_compatibility_class("RayShape", "SeparationRayShape3D");
 	ClassDB::add_compatibility_class("RigidBody", "RigidBody3D");
+#ifndef _2D_DISABLED
 	ClassDB::add_compatibility_class("RigidDynamicBody2D", "RigidBody2D");
+#endif // _2D_DISABLED
 	ClassDB::add_compatibility_class("RigidDynamicBody3D", "RigidBody3D");
 	ClassDB::add_compatibility_class("Shape", "Shape3D");
 	ClassDB::add_compatibility_class("SliderJoint", "SliderJoint3D");
@@ -1287,15 +1314,19 @@ void register_scene_types() {
 	OS::get_singleton()->yield(); // may take time to init
 
 	for (int i = 0; i < 20; i++) {
+#ifndef _2D_DISABLED
 		GLOBAL_DEF_BASIC(vformat("%s/layer_%d", PNAME("layer_names/2d_render"), i + 1), "");
+#endif // _2D_DISABLED
 		GLOBAL_DEF_BASIC(vformat("%s/layer_%d", PNAME("layer_names/3d_render"), i + 1), "");
 	}
 
 	for (int i = 0; i < 32; i++) {
+#ifndef _2D_DISABLED
 		GLOBAL_DEF_BASIC(vformat("%s/layer_%d", PNAME("layer_names/2d_physics"), i + 1), "");
 #ifndef NAVIGATION_2D_DISABLED
 		GLOBAL_DEF_BASIC(vformat("%s/layer_%d", PNAME("layer_names/2d_navigation"), i + 1), "");
 #endif // NAVIGATION_2D_DISABLED
+#endif // _2D_DISABLED
 		GLOBAL_DEF_BASIC(vformat("%s/layer_%d", PNAME("layer_names/3d_physics"), i + 1), "");
 #ifndef NAVIGATION_3D_DISABLED
 		GLOBAL_DEF_BASIC(vformat("%s/layer_%d", PNAME("layer_names/3d_navigation"), i + 1), "");
