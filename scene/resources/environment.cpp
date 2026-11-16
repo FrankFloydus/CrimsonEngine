@@ -588,6 +588,35 @@ float Environment::get_sdfgi_probe_bias() const {
 	return sdfgi_probe_bias;
 }
 
+void Environment::set_sdfgi_contact_refinement_radius(float p_radius) {
+	ERR_FAIL_COND(!Math::is_finite(p_radius));
+	sdfgi_contact_refinement_radius = CLAMP(p_radius, 0.0f, 4.0f);
+	RS::get_singleton()->environment_set_sdfgi_contact_refinement(environment, sdfgi_contact_refinement_radius, sdfgi_contact_refinement_strength);
+}
+
+float Environment::get_sdfgi_contact_refinement_radius() const {
+	return sdfgi_contact_refinement_radius;
+}
+
+void Environment::set_sdfgi_contact_refinement_strength(float p_strength) {
+	ERR_FAIL_COND(!Math::is_finite(p_strength));
+	sdfgi_contact_refinement_strength = CLAMP(p_strength, 0.0f, 1.0f);
+	RS::get_singleton()->environment_set_sdfgi_contact_refinement(environment, sdfgi_contact_refinement_radius, sdfgi_contact_refinement_strength);
+}
+
+float Environment::get_sdfgi_contact_refinement_strength() const {
+	return sdfgi_contact_refinement_strength;
+}
+
+void Environment::set_sdfgi_world_space_irradiance(bool p_enabled) {
+	sdfgi_world_space_irradiance = p_enabled;
+	RS::get_singleton()->environment_set_sdfgi_world_space_irradiance(environment, p_enabled);
+}
+
+bool Environment::is_sdfgi_world_space_irradiance() const {
+	return sdfgi_world_space_irradiance;
+}
+
 void Environment::_update_sdfgi() {
 	RS::get_singleton()->environment_set_sdfgi(
 			environment,
@@ -836,6 +865,40 @@ void Environment::set_fog_height_density(float p_amount) {
 }
 float Environment::get_fog_height_density() const {
 	return fog_height_density;
+}
+
+void Environment::set_fog_height_integrated(bool p_enabled) {
+	fog_height_integrated = p_enabled;
+	_update_fog_height_integrated();
+	notify_property_list_changed();
+}
+
+bool Environment::is_fog_height_integrated() const {
+	return fog_height_integrated;
+}
+
+void Environment::set_fog_height_falloff(float p_falloff) {
+	ERR_FAIL_COND(!Math::is_finite(p_falloff));
+	fog_height_falloff = MAX(0.0f, p_falloff);
+	_update_fog_height_integrated();
+}
+
+float Environment::get_fog_height_falloff() const {
+	return fog_height_falloff;
+}
+
+void Environment::set_fog_start_distance(float p_distance) {
+	ERR_FAIL_COND(!Math::is_finite(p_distance));
+	fog_start_distance = MAX(0.0f, p_distance);
+	_update_fog_height_integrated();
+}
+
+float Environment::get_fog_start_distance() const {
+	return fog_start_distance;
+}
+
+void Environment::_update_fog_height_integrated() {
+	RS::get_singleton()->environment_set_fog_height_integrated(environment, fog_height_integrated, fog_height_falloff, fog_start_distance);
 }
 
 void Environment::set_fog_aerial_perspective(float p_aerial_perspective) {
@@ -1122,6 +1185,13 @@ void Environment::_validate_property(PropertyInfo &p_property) const {
 		return;
 	}
 
+	if (p_property.name == "fog_height_integrated" || p_property.name == "fog_height_falloff" || p_property.name == "fog_start_distance") {
+		if (fog_mode != FOG_MODE_EXPONENTIAL || (p_property.name != "fog_height_integrated" && !fog_height_integrated)) {
+			p_property.usage = PROPERTY_USAGE_NO_EDITOR;
+		}
+		return;
+	}
+
 	if (p_property.name == "ambient_light_color" || p_property.name == "ambient_light_energy") {
 		if (ambient_source == AMBIENT_SOURCE_DISABLED) {
 			p_property.usage = PROPERTY_USAGE_NO_EDITOR;
@@ -1186,6 +1256,11 @@ void Environment::_validate_property(PropertyInfo &p_property) const {
 
 	if (OS::get_singleton()->get_current_rendering_method() != "forward_plus") {
 		// Hide SSAO properties that only work in Forward+.
+
+		if (p_property.name.begins_with("sdfgi_contact_refinement_") || p_property.name == "sdfgi_world_space_irradiance") {
+			p_property.usage = PROPERTY_USAGE_NO_EDITOR;
+			return;
+		}
 		if (p_property.name.begins_with("ssao_")) {
 			if ((p_property.name != "ssao_enabled") && (p_property.name != "ssao_radius") && (p_property.name != "ssao_intensity")) {
 				p_property.usage = PROPERTY_USAGE_NO_EDITOR;
@@ -1414,6 +1489,13 @@ void Environment::_bind_methods() {
 	ClassDB::bind_method(D_METHOD("set_sdfgi_probe_bias", "bias"), &Environment::set_sdfgi_probe_bias);
 	ClassDB::bind_method(D_METHOD("get_sdfgi_probe_bias"), &Environment::get_sdfgi_probe_bias);
 
+	ClassDB::bind_method(D_METHOD("set_sdfgi_contact_refinement_radius", "radius"), &Environment::set_sdfgi_contact_refinement_radius);
+	ClassDB::bind_method(D_METHOD("get_sdfgi_contact_refinement_radius"), &Environment::get_sdfgi_contact_refinement_radius);
+	ClassDB::bind_method(D_METHOD("set_sdfgi_contact_refinement_strength", "strength"), &Environment::set_sdfgi_contact_refinement_strength);
+	ClassDB::bind_method(D_METHOD("get_sdfgi_contact_refinement_strength"), &Environment::get_sdfgi_contact_refinement_strength);
+	ClassDB::bind_method(D_METHOD("set_sdfgi_world_space_irradiance", "enabled"), &Environment::set_sdfgi_world_space_irradiance);
+	ClassDB::bind_method(D_METHOD("is_sdfgi_world_space_irradiance"), &Environment::is_sdfgi_world_space_irradiance);
+
 	ADD_GROUP("SDFGI", "sdfgi_");
 	ADD_PROPERTY(PropertyInfo(Variant::BOOL, "sdfgi_enabled", PROPERTY_HINT_GROUP_ENABLE), "set_sdfgi_enabled", "is_sdfgi_enabled");
 	ADD_PROPERTY(PropertyInfo(Variant::BOOL, "sdfgi_use_occlusion"), "set_sdfgi_use_occlusion", "is_sdfgi_using_occlusion");
@@ -1429,6 +1511,10 @@ void Environment::_bind_methods() {
 	ADD_PROPERTY(PropertyInfo(Variant::FLOAT, "sdfgi_energy"), "set_sdfgi_energy", "get_sdfgi_energy");
 	ADD_PROPERTY(PropertyInfo(Variant::FLOAT, "sdfgi_normal_bias"), "set_sdfgi_normal_bias", "get_sdfgi_normal_bias");
 	ADD_PROPERTY(PropertyInfo(Variant::FLOAT, "sdfgi_probe_bias"), "set_sdfgi_probe_bias", "get_sdfgi_probe_bias");
+
+	ADD_PROPERTY(PropertyInfo(Variant::FLOAT, "sdfgi_contact_refinement_radius", PROPERTY_HINT_RANGE, "0,4,0.05,suffix:m"), "set_sdfgi_contact_refinement_radius", "get_sdfgi_contact_refinement_radius");
+	ADD_PROPERTY(PropertyInfo(Variant::FLOAT, "sdfgi_contact_refinement_strength", PROPERTY_HINT_RANGE, "0,1,0.01"), "set_sdfgi_contact_refinement_strength", "get_sdfgi_contact_refinement_strength");
+	ADD_PROPERTY(PropertyInfo(Variant::BOOL, "sdfgi_world_space_irradiance"), "set_sdfgi_world_space_irradiance", "is_sdfgi_world_space_irradiance");
 
 	// Glow
 
@@ -1502,6 +1588,13 @@ void Environment::_bind_methods() {
 	ClassDB::bind_method(D_METHOD("set_fog_height_density", "height_density"), &Environment::set_fog_height_density);
 	ClassDB::bind_method(D_METHOD("get_fog_height_density"), &Environment::get_fog_height_density);
 
+	ClassDB::bind_method(D_METHOD("set_fog_height_integrated", "enabled"), &Environment::set_fog_height_integrated);
+	ClassDB::bind_method(D_METHOD("is_fog_height_integrated"), &Environment::is_fog_height_integrated);
+	ClassDB::bind_method(D_METHOD("set_fog_height_falloff", "falloff"), &Environment::set_fog_height_falloff);
+	ClassDB::bind_method(D_METHOD("get_fog_height_falloff"), &Environment::get_fog_height_falloff);
+	ClassDB::bind_method(D_METHOD("set_fog_start_distance", "distance"), &Environment::set_fog_start_distance);
+	ClassDB::bind_method(D_METHOD("get_fog_start_distance"), &Environment::get_fog_start_distance);
+
 	ClassDB::bind_method(D_METHOD("set_fog_aerial_perspective", "aerial_perspective"), &Environment::set_fog_aerial_perspective);
 	ClassDB::bind_method(D_METHOD("get_fog_aerial_perspective"), &Environment::get_fog_aerial_perspective);
 
@@ -1527,6 +1620,10 @@ void Environment::_bind_methods() {
 	ADD_PROPERTY(PropertyInfo(Variant::FLOAT, "fog_sky_affect", PROPERTY_HINT_RANGE, "0,1,0.001"), "set_fog_sky_affect", "get_fog_sky_affect");
 	ADD_PROPERTY(PropertyInfo(Variant::FLOAT, "fog_height", PROPERTY_HINT_RANGE, "-1024,1024,0.01,or_less,or_greater,suffix:m"), "set_fog_height", "get_fog_height");
 	ADD_PROPERTY(PropertyInfo(Variant::FLOAT, "fog_height_density", PROPERTY_HINT_RANGE, "-16,16,0.0001,or_less,or_greater"), "set_fog_height_density", "get_fog_height_density");
+
+	ADD_PROPERTY(PropertyInfo(Variant::BOOL, "fog_height_integrated"), "set_fog_height_integrated", "is_fog_height_integrated");
+	ADD_PROPERTY(PropertyInfo(Variant::FLOAT, "fog_height_falloff", PROPERTY_HINT_RANGE, "0,0.1,0.0001,or_greater,suffix:m⁻¹"), "set_fog_height_falloff", "get_fog_height_falloff");
+	ADD_PROPERTY(PropertyInfo(Variant::FLOAT, "fog_start_distance", PROPERTY_HINT_RANGE, "0,4000,0.1,or_greater,suffix:m"), "set_fog_start_distance", "get_fog_start_distance");
 
 	ADD_PROPERTY(PropertyInfo(Variant::FLOAT, "fog_depth_curve", PROPERTY_HINT_EXP_EASING), "set_fog_depth_curve", "get_fog_depth_curve");
 	ADD_PROPERTY(PropertyInfo(Variant::FLOAT, "fog_depth_begin", PROPERTY_HINT_RANGE, "0,4000,0.1,or_greater,or_less,suffix:m"), "set_fog_depth_begin", "get_fog_depth_begin");

@@ -420,6 +420,23 @@ float RendererEnvironmentStorage::environment_get_fog_sky_affect(RID p_env) cons
 	return env->fog_sky_affect;
 }
 
+void RendererEnvironmentStorage::environment_set_fog_height_integrated(RID p_env, bool p_enabled, float p_falloff, float p_start_distance) {
+	Environment *env = environment_owner.get_or_null(p_env);
+	ERR_FAIL_NULL(env);
+	ERR_FAIL_COND(!Math::is_finite(p_falloff) || !Math::is_finite(p_start_distance));
+	env->fog_height_integrated = p_enabled;
+	env->fog_height_integration = Vector2(MAX(0.0f, p_falloff), MAX(0.0f, p_start_distance));
+}
+
+Vector2 RendererEnvironmentStorage::environment_get_fog_height_integration(RID p_env) const {
+	const Environment *env = environment_owner.get_or_null(p_env);
+	ERR_FAIL_NULL_V(env, Vector2(-1.0, 0.0));
+	if (env->fog_height_integrated && env->fog_mode == RSE::EnvironmentFogMode::ENV_FOG_MODE_EXPONENTIAL) {
+		return env->fog_height_integration;
+	}
+	return Vector2(-1.0, 0.0);
+}
+
 // Depth Fog
 
 void RendererEnvironmentStorage::environment_set_fog_depth(RID p_env, float p_curve, float p_begin, float p_end) {
@@ -832,6 +849,31 @@ void RendererEnvironmentStorage::environment_set_sdfgi(RID p_env, bool p_enable,
 	env->sdfgi_normal_bias = p_normal_bias;
 	env->sdfgi_probe_bias = p_probe_bias;
 	env->sdfgi_y_scale = p_y_scale;
+}
+
+void RendererEnvironmentStorage::environment_set_sdfgi_contact_refinement(RID p_env, float p_radius, float p_strength) {
+	Environment *env = environment_owner.get_or_null(p_env);
+	ERR_FAIL_NULL(env);
+	ERR_FAIL_COND(!Math::is_finite(p_radius) || !Math::is_finite(p_strength));
+	env->sdfgi_contact_refinement = Vector2(CLAMP(p_radius, 0.0f, 4.0f), CLAMP(p_strength, 0.0f, 1.0f));
+}
+
+Vector2 RendererEnvironmentStorage::environment_get_sdfgi_contact_refinement(RID p_env) const {
+	const Environment *env = environment_owner.get_or_null(p_env);
+	ERR_FAIL_NULL_V(env, Vector2());
+	return env->sdfgi_contact_refinement;
+}
+
+void RendererEnvironmentStorage::environment_set_sdfgi_world_space_irradiance(RID p_env, bool p_enabled) {
+	Environment *env = environment_owner.get_or_null(p_env);
+	ERR_FAIL_NULL(env);
+	env->sdfgi_world_space_irradiance = p_enabled;
+}
+
+bool RendererEnvironmentStorage::environment_get_sdfgi_world_space_irradiance(RID p_env) const {
+	const Environment *env = environment_owner.get_or_null(p_env);
+	ERR_FAIL_NULL_V(env, false);
+	return env->sdfgi_world_space_irradiance;
 }
 
 bool RendererEnvironmentStorage::environment_get_sdfgi_enabled(RID p_env) const {

@@ -1484,6 +1484,12 @@ void AudioServer::finish() {
 		AudioDriverManager::get_driver(i)->finish();
 	}
 
+	// Playbacks stopped during scene teardown may still be waiting for a mixer callback.
+	for (AudioStreamPlaybackListNode *playback : playback_list) {
+		_delete_stream_playback_list_node(playback);
+	}
+	playback_list.maybe_cleanup();
+
 	for (int i = 0; i < buses.size(); i++) {
 		memdelete(buses[i]);
 	}

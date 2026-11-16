@@ -386,6 +386,8 @@ public:
 	virtual void decal_set_texture(RID p_decal, RSE::DecalTexture p_type, RID p_texture) = 0;
 	virtual void decal_set_emission_energy(RID p_decal, float p_energy) = 0;
 	virtual void decal_set_albedo_mix(RID p_decal, float p_mix) = 0;
+	virtual void decal_set_orm_channels(RID p_decal, BitField<RSE::DecalORMChannel> p_channels) = 0;
+	virtual void decal_set_roughness_affects_ssr(RID p_decal, bool p_enabled) = 0;
 	virtual void decal_set_modulate(RID p_decal, const Color &p_modulate) = 0;
 	virtual void decal_set_cull_mask(RID p_decal, uint32_t p_layers) = 0;
 	virtual void decal_set_distance_fade(RID p_decal, bool p_enabled, float p_begin, float p_length) = 0;
@@ -692,6 +694,8 @@ public:
 	virtual void environment_set_ssil_quality(RSE::EnvironmentSSILQuality p_quality, bool p_half_size, float p_adaptive_target, int p_blur_passes, float p_fadeout_from, float p_fadeout_to) = 0;
 
 	virtual void environment_set_sdfgi(RID p_env, bool p_enable, int p_cascades, float p_min_cell_size, RSE::EnvironmentSDFGIYScale p_y_scale, bool p_use_occlusion, float p_bounce_feedback, bool p_read_sky, float p_energy, float p_normal_bias, float p_probe_bias) = 0;
+	virtual void environment_set_sdfgi_contact_refinement(RID p_env, float p_radius, float p_strength) = 0;
+	virtual void environment_set_sdfgi_world_space_irradiance(RID p_env, bool p_enabled) = 0;
 
 	virtual void environment_set_sdfgi_ray_count(RSE::EnvironmentSDFGIRayCount p_ray_count) = 0;
 
@@ -701,6 +705,7 @@ public:
 
 	virtual void environment_set_fog(RID p_env, bool p_enable, const Color &p_light_color, float p_light_energy, float p_sun_scatter, float p_density, float p_height, float p_height_density, float p_aerial_perspective, float p_sky_affect, RSE::EnvironmentFogMode p_mode = RSE::EnvironmentFogMode::ENV_FOG_MODE_EXPONENTIAL) = 0;
 	virtual void environment_set_fog_depth(RID p_env, float p_curve, float p_begin, float p_end) = 0;
+	virtual void environment_set_fog_height_integrated(RID p_env, bool p_enabled, float p_falloff, float p_start_distance) = 0;
 
 	virtual void environment_set_volumetric_fog(RID p_env, bool p_enable, float p_density, const Color &p_albedo, const Color &p_emission, float p_emission_energy, float p_anisotropy, float p_length, float p_detail_spread, float p_gi_inject, bool p_temporal_reprojection, float p_temporal_reprojection_amount, float p_ambient_inject, float p_sky_affect) = 0;
 	virtual void environment_set_volumetric_fog_volume_size(int p_size, int p_depth) = 0;
@@ -724,6 +729,7 @@ public:
 	virtual void camera_attributes_set_dof_blur(RID p_camera_attributes, bool p_far_enable, float p_far_distance, float p_far_transition, bool p_near_enable, float p_near_distance, float p_near_transition, float p_amount) = 0;
 	virtual void camera_attributes_set_exposure(RID p_camera_attributes, float p_multiplier, float p_exposure_normalization) = 0;
 	virtual void camera_attributes_set_auto_exposure(RID p_camera_attributes, bool p_enable, float p_min_sensitivity, float p_max_sensitivity, float p_speed, float p_scale) = 0;
+	virtual void camera_attributes_set_auto_exposure_ev_adaptation(RID p_camera_attributes, bool p_enable, float p_bright_scene_speed, float p_dark_scene_speed) = 0;
 
 	/* SCENARIO API */
 
@@ -778,8 +784,10 @@ public:
 	virtual void instance_geometry_set_lightmap(RID p_instance, RID p_lightmap, const Rect2 &p_lightmap_uv_scale, int p_lightmap_slice) = 0;
 	virtual void instance_geometry_set_lod_bias(RID p_instance, float p_lod_bias) = 0;
 	virtual void instance_geometry_set_transparency(RID p_instance, float p_transparency) = 0;
+	virtual void instance_geometry_set_render_after_dof(RID p_instance, bool p_enabled) = 0;
 
 	virtual void instance_geometry_set_shader_parameter(RID p_instance, const StringName &, const Variant &p_value) = 0;
+	virtual void instance_invalidate_sdfgi(RID p_instance) = 0;
 	virtual Variant instance_geometry_get_shader_parameter(RID p_instance, const StringName &) const = 0;
 	virtual Variant instance_geometry_get_shader_parameter_default_value(RID p_instance, const StringName &) const = 0;
 	virtual void instance_geometry_get_shader_parameter_list(RID p_instance, List<PropertyInfo> *p_parameters) const = 0;
@@ -1123,6 +1131,7 @@ VARIANT_ENUM_CAST_EXT(RSE::ReflectionProbeUpdateMode, RenderingServer::Reflectio
 VARIANT_ENUM_CAST_EXT(RSE::ReflectionProbeAmbientMode, RenderingServer::ReflectionProbeAmbientMode);
 VARIANT_ENUM_CAST_EXT(RSE::VoxelGIQuality, RenderingServer::VoxelGIQuality);
 VARIANT_ENUM_CAST_EXT(RSE::DecalTexture, RenderingServer::DecalTexture);
+VARIANT_BITFIELD_CAST_EXT(RSE::DecalORMChannel, RenderingServer::DecalORMChannel);
 VARIANT_ENUM_CAST_EXT(RSE::DecalFilter, RenderingServer::DecalFilter);
 VARIANT_ENUM_CAST_EXT(RSE::ParticlesMode, RenderingServer::ParticlesMode);
 VARIANT_ENUM_CAST_EXT(RSE::ParticlesTransformAlign, RenderingServer::ParticlesTransformAlign);

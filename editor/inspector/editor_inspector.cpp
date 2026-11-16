@@ -36,6 +36,7 @@
 #include "core/object/callable_mp.h"
 #include "core/object/class_db.h"
 #include "core/os/keyboard.h"
+#include "core/variant/typed_array.h"
 #include "editor/debugger/editor_debugger_inspector.h"
 #include "editor/debugger/editor_debugger_node.h"
 #include "editor/doc/doc_tools.h"
@@ -4280,7 +4281,7 @@ void EditorInspector::_connect_property_editor_signals(EditorProperty *p_ep, boo
 	p_ep->connect("property_pinned", callable_mp(this, &EditorInspector::_property_pinned));
 	p_ep->connect("selected", callable_mp(this, &EditorInspector::_property_selected));
 	p_ep->connect("multiple_properties_changed", callable_mp(this, &EditorInspector::_multiple_properties_changed));
-	p_ep->connect("resource_selected", callable_mp(get_root_inspector(), &EditorInspector::_resource_selected), CONNECT_DEFERRED);
+	p_ep->connect("resource_selected", callable_mp(get_root_inspector(), &EditorInspector::_resource_selected_from_object).bind(edited_object_id), CONNECT_DEFERRED);
 	p_ep->connect("object_id_selected", callable_mp(this, &EditorInspector::_object_id_selected), CONNECT_DEFERRED);
 }
 
@@ -4406,6 +4407,50 @@ void EditorInspector::_add_section_in_tree(EditorInspectorSection *p_section, VB
 	container->add_child(p_section);
 }
 
+void EditorInspector::_add_exposed_node_inspectors(Node *p_node, bool p_read_only) {
+	const TypedArray<NodePath> paths = p_node->get_inspector_exposed_nodes();
+	HashSet<ObjectID> added_nodes;
+	for (int i = 0; i < paths.size(); i++) {
+		const NodePath path = paths[i];
+		if (path.is_empty() || path.is_absolute() || path.get_subname_count() != 0) {
+			continue;
+		}
+		Node *target = p_node->get_node_or_null(path);
+		if (!target || !p_node->is_ancestor_of(target) || added_nodes.has(target->get_instance_id())) {
+			continue;
+		}
+		added_nodes.insert(target->get_instance_id());
+		EditorInspectorSection *section = memnew(EditorInspectorSection);
+		_add_section_in_tree(section, main_vbox);
+		const String section_path = "inspector_nodes/" + String(path);
+		section->setup(section_path, String(path) + " (" + target->get_class() + ")", p_node, theme_cache.prop_subsection, use_folding);
+		section->set_tooltip_text(TTR("Properties of an exposed descendant node. Changes are saved as overrides in this scene instance."));
+		sections.push_back(section);
+		EditorInspector *inspector = memnew(EditorInspector);
+		inspector->set_vertical_scroll_mode(ScrollContainer::SCROLL_MODE_DISABLED);
+		inspector->set_root_inspector(get_root_inspector());
+		inspector->set_show_categories(true, true);
+		inspector->set_use_doc_hints(use_doc_hints);
+		inspector->set_property_name_style(property_name_style);
+		inspector->set_use_wide_editors(wide_editors);
+		inspector->set_read_only(p_read_only);
+		inspector->set_mark_unsaved(mark_unsaved);
+		inspector->set_use_folding(use_folding);
+		inspector->set_use_filter(use_filter);
+		if (search_box) {
+			inspector->register_text_enter(search_box);
+		}
+		// Animation's legacy property_keyed signal assumes the selected node, not a descendant.
+		inspector->set_keying(false);
+		inspector->set_draw_focus_border(false);
+		inspector->set_focus_mode(FocusMode::FOCUS_NONE);
+		inspector->connect("object_id_selected", callable_mp(get_root_inspector(), &EditorInspector::_exposed_node_object_id_selected));
+		section->get_vbox()->add_child(inspector);
+		exposed_node_inspectors.push_back(inspector);
+		inspector->edit(target);
+	}
+}
+
 void EditorInspector::update_tree() {
 	Object *object = ObjectDB::get_instance(edited_object_id);
 	if (!object) {
@@ -4471,7 +4516,7 @@ void EditorInspector::update_tree() {
 
 		Node *nod = Object::cast_to<Node>(object);
 		Node *es = EditorNode::get_singleton()->get_edited_scene();
-		if (nod && es != nod && nod->get_owner() != es) {
+		if (nod && es != nod && nod->get_owner() != es && (!es || !es->is_node_exposed_in_inspector(nod))) {
 			// Draw in warning color edited nodes that are not in the currently edited scene,
 			// as changes may be lost in the future.
 			draw_warning = true;
@@ -4522,6 +4567,10 @@ void EditorInspector::update_tree() {
 		if (begin_vbox->get_child_count() > 0) {
 			begin_vbox->show();
 		}
+	}
+
+	if (Node *node = Object::cast_to<Node>(object)) {
+		_add_exposed_node_inspectors(node, read_only || all_read_only);
 	}
 
 	StringName doc_name;
@@ -5388,7 +5437,6 @@ void EditorInspector::update_tree() {
 		ped->parse_end(object);
 		_parse_added_editors(main_vbox, nullptr, ped);
 	}
-
 	if (is_main_editor_inspector()) {
 		// Updating inspector might invalidate some editing owners.
 		EditorNode::get_singleton()->hide_unused_editors();
@@ -5427,6 +5475,9 @@ void EditorInspector::update_properties_recursive() {
 			E->update_properties_recursive();
 		}
 	}
+	for (EditorInspector *inspector : exposed_node_inspectors) {
+		inspector->update_properties_recursive();
+	}
 }
 
 void EditorInspector::_clear(bool p_hide_plugins) {
@@ -5453,6 +5504,7 @@ void EditorInspector::_clear(bool p_hide_plugins) {
 	property_focusable = -1;
 	editor_property_map.clear();
 	sections.clear();
+	exposed_node_inspectors.clear();
 	pending.clear();
 	restart_request_props.clear();
 
@@ -5623,6 +5675,9 @@ void EditorInspector::collapse_all_folding() {
 			E->collapse_all_folding();
 		}
 	}
+	for (EditorInspector *inspector : exposed_node_inspectors) {
+		inspector->collapse_all_folding();
+	}
 }
 
 void EditorInspector::expand_all_folding() {
@@ -5633,6 +5688,9 @@ void EditorInspector::expand_all_folding() {
 		for (EditorProperty *E : F.value) {
 			E->expand_all_folding();
 		}
+	}
+	for (EditorInspector *inspector : exposed_node_inspectors) {
+		inspector->expand_all_folding();
 	}
 }
 
@@ -6055,6 +6113,20 @@ void EditorInspector::_object_id_selected(const String &p_path, ObjectID p_id) {
 
 void EditorInspector::_resource_selected(const String &p_path, Ref<Resource> p_resource) {
 	emit_signal(SNAME("resource_selected"), p_resource, p_path);
+}
+
+void EditorInspector::_resource_selected_from_object(const String &p_path, Ref<Resource> p_resource, ObjectID p_source) {
+	Node *source = Object::cast_to<Node>(ObjectDB::get_instance(p_source));
+	Node *selected = Object::cast_to<Node>(get_edited_object());
+	if (source && selected && source != selected && selected->is_node_exposed_in_inspector(source)) {
+		// The selection history needs the real property owner before opening its resource.
+		EditorNode::get_singleton()->push_item(source);
+	}
+	_resource_selected(p_path, p_resource);
+}
+
+void EditorInspector::_exposed_node_object_id_selected(ObjectID p_id) {
+	emit_signal(SNAME("object_id_selected"), p_id);
 }
 
 void EditorInspector::_node_removed(Node *p_node) {

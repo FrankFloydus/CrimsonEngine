@@ -635,15 +635,16 @@ void vertex_shader(vec3 vertex_input,
 			if (directional_lights.data[i].bake_mode == LIGHT_BAKE_STATIC && bool(instances.data[instance_index].flags & INSTANCE_FLAGS_USE_LIGHTMAP)) {
 				continue; // Statically baked light and object uses lightmap, skip.
 			}
+			vec3 directional_color = directional_lights.data[i].color * directional_lights.data[i].energy * directional_projector_transmission(i, vertex);
 			if (i == 0) {
 				light_compute_vertex(normal, directional_lights.data[0].direction, view,
-						directional_lights.data[0].color * directional_lights.data[0].energy,
+						directional_color,
 						true, roughness,
 						directional_diffuse,
 						directional_specular);
 			} else {
 				light_compute_vertex(normal, directional_lights.data[i].direction, view,
-						directional_lights.data[i].color * directional_lights.data[i].energy,
+						directional_color,
 						true, roughness,
 						diffuse_light_interp.rgb,
 						specular_light_interp.rgb);
@@ -1064,7 +1065,33 @@ vec4 volumetric_fog_process(vec2 screen_uv, float z) {
 	return texture(sampler3D(volumetric_fog_texture, SAMPLER_LINEAR_CLAMP), fog_pos);
 }
 
-vec4 fog_process(vec3 vertex) {
+float integrated_height_fog(vec3 vertex, vec3 eye_offset) {
+	bool orthogonal = bool(scene_data_block.data.flags & SCENE_DATA_FLAGS_ORTHOGONAL_CAMERA);
+	vec3 ray_origin = orthogonal ? vec3(vertex.xy, 0.0) : eye_offset;
+	vec3 ray = vertex - ray_origin;
+	float ray_length = length(ray);
+	float start_distance = scene_data_block.data.fog_start_distance;
+	float fog_length = ray_length - start_distance;
+	float density = scene_data_block.data.fog_density;
+	if (fog_length <= 0.0 || density <= 0.0) {
+		return 0.0;
+	}
+
+	vec3 world_up_in_view = scene_data_block.data.inv_view_matrix[1].xyz;
+	float ray_height = dot(world_up_in_view, ray);
+	float end_height = scene_data_block.data.fog_height_view_offset + dot(world_up_in_view, vertex);
+	float start_height = end_height - ray_height * (fog_length / ray_length);
+	float falloff = scene_data_block.data.fog_height_falloff;
+	float height_delta = falloff * abs(end_height - start_height);
+
+	// Integrate from the denser endpoint to keep the relative exponential bounded.
+	// Use the horizontal limit to avoid subtracting nearly equal floats.
+	float average = height_delta < 0.01 ? 1.0 - height_delta * (0.5 - height_delta / 6.0) : (1.0 - exp(-height_delta)) / height_delta;
+	float peak_density = density * exp(clamp(-falloff * min(start_height, end_height), -80.0, 80.0));
+	return 1.0 - exp(-peak_density * fog_length * average);
+}
+
+vec4 fog_process(vec3 vertex, vec3 eye_offset) {
 	vec3 fog_color = scene_data_block.data.fog_light_color;
 
 	if (scene_data_block.data.fog_aerial_perspective > 0.0) {
@@ -1102,6 +1129,10 @@ vec4 fog_process(vec3 vertex) {
 
 	float fog_amount = 0.0;
 
+	if (scene_data_block.data.fog_height_falloff >= 0.0) {
+		return vec4(fog_color, integrated_height_fog(vertex, eye_offset));
+	}
+
 	if (sc_use_depth_fog()) {
 		float fog_z = smoothstep(scene_data_block.data.fog_depth_begin, scene_data_block.data.fog_depth_end, length(vertex));
 		float fog_quad_amount = pow(fog_z, scene_data_block.data.fog_depth_curve) * scene_data_block.data.fog_density;
@@ -1128,6 +1159,10 @@ vec4 fog_process(vec3 vertex) {
 	return vec4(fog_color, fog_amount);
 }
 
+#endif // !MODE_RENDER_DEPTH
+
+#if !defined(MODE_RENDER_DEPTH) || defined(MODE_RENDER_NORMAL_ROUGHNESS)
+
 void cluster_get_item_range(uint p_offset, out uint item_min, out uint item_max, out uint item_from, out uint item_to) {
 	uint item_min_max = cluster_buffer.data[p_offset];
 	item_min = item_min_max & 0xFFFFu;
@@ -1143,7 +1178,7 @@ uint cluster_get_range_clip_mask(uint i, uint z_min, uint z_max) {
 	return bitfieldInsert(uint(0), uint(0xFFFFFFFF), local_min, mask_width);
 }
 
-#endif //!MODE_RENDER DEPTH
+#endif // !MODE_RENDER_DEPTH || MODE_RENDER_NORMAL_ROUGHNESS
 
 #if defined(MODE_RENDER_NORMAL_ROUGHNESS) || defined(MODE_RENDER_MATERIAL)
 // https://advances.realtimerendering.com/s2010/Kaplanyan-CryEngine3(SIGGRAPH%202010%20Advanced%20RealTime%20Rendering%20Course).pdf
@@ -1494,7 +1529,7 @@ void fragment_shader(in SceneData scene_data) {
 	// Draw "fixed" fog before volumetric fog to ensure volumetric fog can appear in front of the sky.
 
 	if (bool(scene_data.flags & SCENE_DATA_FLAGS_USE_FOG)) {
-		fog = fog_process(vertex);
+		fog = fog_process(vertex, eye_offset);
 		// Premultiply by opacity and convert opacity to transmittance to match volumetric fog.
 		fog.rgb *= fog.a;
 		fog.a = 1.0 - fog.a;
@@ -1538,7 +1573,11 @@ void fragment_shader(in SceneData scene_data) {
 
 	/////////////////////// DECALS ////////////////////////////////
 
-#ifndef MODE_RENDER_DEPTH
+#if !defined(MODE_RENDER_DEPTH) || defined(MODE_RENDER_NORMAL_ROUGHNESS)
+
+#ifdef MODE_RENDER_DEPTH
+	if (implementation_data.prepass_roughness_decals != 0u) {
+#endif
 
 #ifdef USE_MULTIVIEW
 	uvec2 cluster_pos = uvec2(combined_uv.xy / scene_data.screen_pixel_size) >> implementation_data.cluster_shift;
@@ -1582,6 +1621,15 @@ void fragment_shader(in SceneData scene_data) {
 
 				uint decal_index = 32 * i + bit;
 
+#ifdef MODE_RENDER_DEPTH
+				if (decals.data[decal_index].roughness_affects_ssr == 0u ||
+						(decals.data[decal_index].orm_channels & DECAL_ORM_CHANNEL_ROUGHNESS) == 0u ||
+						decals.data[decal_index].albedo_rect == vec4(0.0) ||
+						decals.data[decal_index].orm_rect == vec4(0.0)) {
+					continue;
+				}
+#endif
+
 				if (!bool(decals.data[decal_index].mask & instances.data[instance_index].layer_mask)) {
 					continue; //not masked
 				}
@@ -1611,6 +1659,7 @@ void fragment_shader(in SceneData scene_data) {
 					}
 					decal_albedo *= decals.data[decal_index].modulate;
 					decal_albedo.a *= fade;
+#ifndef MODE_RENDER_DEPTH
 					albedo = mix(albedo, decal_albedo.rgb, decal_albedo.a * decals.data[decal_index].albedo_mix);
 
 					if (decals.data[decal_index].normal_rect != vec4(0.0)) {
@@ -1627,20 +1676,33 @@ void fragment_shader(in SceneData scene_data) {
 
 						normal = normalize(mix(normal, decal_normal, decal_albedo.a));
 					}
+#endif
 
-					if (decals.data[decal_index].orm_rect != vec4(0.0)) {
+					uint orm_channels = decals.data[decal_index].orm_channels;
+					if (orm_channels != 0u && decals.data[decal_index].orm_rect != vec4(0.0)) {
 						vec3 decal_orm;
 						if (sc_decal_use_mipmaps()) {
 							decal_orm = textureGrad(sampler2D(decal_atlas, decal_sampler), uv_local.xz * decals.data[decal_index].orm_rect.zw + decals.data[decal_index].orm_rect.xy, ddx * decals.data[decal_index].orm_rect.zw, ddy * decals.data[decal_index].orm_rect.zw).xyz;
 						} else {
 							decal_orm = textureLod(sampler2D(decal_atlas, decal_sampler), uv_local.xz * decals.data[decal_index].orm_rect.zw + decals.data[decal_index].orm_rect.xy, 0.0).xyz;
 						}
-						ao = mix(ao, decal_orm.r, decal_albedo.a);
-						roughness = mix(roughness, decal_orm.g, decal_albedo.a);
-						metallic = mix(metallic, decal_orm.b, decal_albedo.a);
+#ifndef MODE_RENDER_DEPTH
+						if ((orm_channels & DECAL_ORM_CHANNEL_AO) != 0u) {
+							ao = mix(ao, decal_orm.r, decal_albedo.a);
+						}
+#endif
+						if ((orm_channels & DECAL_ORM_CHANNEL_ROUGHNESS) != 0u) {
+							roughness = mix(roughness, decal_orm.g, decal_albedo.a);
+						}
+#ifndef MODE_RENDER_DEPTH
+						if ((orm_channels & DECAL_ORM_CHANNEL_METALLIC) != 0u) {
+							metallic = mix(metallic, decal_orm.b, decal_albedo.a);
+						}
+#endif
 					}
 				}
 
+#ifndef MODE_RENDER_DEPTH
 				if (decals.data[decal_index].emission_rect != vec4(0.0)) {
 					//emission is additive, so its independent from albedo
 					if (sc_decal_use_mipmaps()) {
@@ -1649,13 +1711,15 @@ void fragment_shader(in SceneData scene_data) {
 						emission += textureLod(sampler2D(decal_atlas_srgb, decal_sampler), uv_local.xz * decals.data[decal_index].emission_rect.zw + decals.data[decal_index].emission_rect.xy, 0.0).xyz * decals.data[decal_index].modulate.rgb * decals.data[decal_index].emission_energy * fade;
 					}
 				}
+#endif // !MODE_RENDER_DEPTH
 			}
 		}
 	}
+#ifdef MODE_RENDER_DEPTH
+	}
+#endif
 
-	//pack albedo until needed again, saves 2 VGPRs in the meantime
-
-#endif //not render depth
+#endif // !MODE_RENDER_DEPTH || MODE_RENDER_NORMAL_ROUGHNESS
 	/////////////////////// LIGHTING //////////////////////////////
 
 #ifdef NORMAL_USED
@@ -2754,12 +2818,13 @@ void fragment_shader(in SceneData scene_data) {
 #endif
 
 			float size_A = sc_use_directional_soft_shadows() ? directional_lights.data[i].size : 0.0;
+			vec3 directional_color = directional_lights.data[i].color * directional_lights.data[i].energy * directional_projector_transmission(i, vertex);
 
 			light_compute(normal, directional_lights.data[i].direction, normalize(view), size_A,
 #ifndef DEBUG_DRAW_PSSM_SPLITS
-					directional_lights.data[i].color * directional_lights.data[i].energy,
+					directional_color,
 #else
-					directional_lights.data[i].color * directional_lights.data[i].energy * tint,
+					directional_color * tint,
 #endif
 					true, shadow, f0, roughness, metallic, directional_lights.data[i].specular, albedo, alpha, screen_uv, energy_compensation,
 #ifdef LIGHT_BACKLIGHT_USED

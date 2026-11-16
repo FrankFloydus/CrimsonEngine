@@ -3432,6 +3432,34 @@ EditorPropertyRID::EditorPropertyRID() {
 
 void EditorPropertyResource::_set_read_only(bool p_read_only) {
 	resource_picker->set_editable(!p_read_only);
+	if (make_editable_button) {
+		make_editable_button->set_disabled(p_read_only);
+	}
+	if (sub_inspector) {
+		sub_inspector->set_read_only(p_read_only || (is_checkable() && !is_checked()));
+	}
+}
+
+bool EditorPropertyResource::_can_make_exposed_resource_editable(const Ref<Resource> &p_resource) {
+	if (is_read_only() || p_resource.is_null()) {
+		return false;
+	}
+	EditorNode *editor = EditorNode::get_singleton();
+	Node *node = Object::cast_to<Node>(get_edited_object());
+	Node *scene = editor ? editor->get_edited_scene() : nullptr;
+	return node && scene && scene->is_node_exposed_in_inspector(node) && editor->is_resource_read_only(p_resource) && !editor->is_resource_read_only(p_resource, true);
+}
+
+void EditorPropertyResource::_make_exposed_resource_editable() {
+	Ref<Resource> resource = get_edited_property_display_value();
+	if (!_can_make_exposed_resource_editable(resource)) {
+		return;
+	}
+	Ref<Resource> editable = resource->duplicate_deep();
+	ERR_FAIL_COND(editable.is_null());
+	get_edited_object()->editor_set_section_unfold(get_edited_property(), true);
+	_resource_changed(editable);
+	update_property();
 }
 
 void EditorPropertyResource::_resource_selected(const Ref<Resource> &p_resource, bool p_inspect) {
@@ -3723,6 +3751,11 @@ void EditorPropertyResource::update_property() {
 
 		if (res.is_valid() && get_edited_object()->editor_is_section_unfolded(get_edited_property())) {
 			if (!sub_inspector) {
+				sub_inspector_container = memnew(VBoxContainer);
+				make_editable_button = memnew(Button(TTR("Make Editable Copy")));
+				make_editable_button->set_tooltip_text(TTR("Creates an instance-local copy for this scene. Changes use scene undo history."));
+				make_editable_button->connect(SceneStringName(pressed), callable_mp(this, &EditorPropertyResource::_make_exposed_resource_editable));
+				sub_inspector_container->add_child(make_editable_button);
 				sub_inspector = memnew(EditorInspector);
 				sub_inspector->set_vertical_scroll_mode(ScrollContainer::SCROLL_MODE_DISABLED);
 				sub_inspector->set_show_categories(true, true);
@@ -3748,8 +3781,9 @@ void EditorPropertyResource::update_property() {
 
 				sub_inspector->set_use_filter(use_filter);
 
-				add_child(sub_inspector);
-				set_bottom_editor(sub_inspector);
+				sub_inspector_container->add_child(sub_inspector);
+				add_child(sub_inspector_container);
+				set_bottom_editor(sub_inspector_container);
 
 				resource_picker->set_toggle_pressed(true);
 
@@ -3768,7 +3802,9 @@ void EditorPropertyResource::update_property() {
 				}
 			}
 
-			sub_inspector->set_read_only(is_checkable() && !is_checked());
+			make_editable_button->set_visible(_can_make_exposed_resource_editable(res));
+			make_editable_button->set_disabled(is_read_only());
+			sub_inspector->set_read_only(is_read_only() || (is_checkable() && !is_checked()));
 			sub_inspector->set_category_color_level(get_sub_inspector_color_level());
 
 			if (res.ptr() != sub_inspector->get_edited_object()) {
@@ -3778,8 +3814,10 @@ void EditorPropertyResource::update_property() {
 
 		} else if (sub_inspector) {
 			set_bottom_editor(nullptr);
-			memdelete(sub_inspector);
+			memdelete(sub_inspector_container);
 			sub_inspector = nullptr;
+			sub_inspector_container = nullptr;
+			make_editable_button = nullptr;
 
 			if (opened_editor) {
 				EditorNode::get_singleton()->hide_unused_editors();

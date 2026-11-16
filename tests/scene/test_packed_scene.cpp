@@ -33,6 +33,8 @@
 TEST_FORCE_LINK(test_packed_scene)
 
 #include "core/object/callable_mp.h"
+#include "core/object/undo_redo.h"
+#include "core/variant/typed_array.h"
 #include "scene/resources/packed_scene.h"
 
 namespace TestPackedScene {
@@ -281,5 +283,157 @@ TEST_CASE("[PackedScene] Recreate State") {
 
 	memdelete(scene);
 }
+
+#ifdef TOOLS_ENABLED
+TEST_CASE("[PackedScene] Inspector exposed descendants preserve instance overrides") {
+	Node *source = memnew(Node);
+	source->set_name("Reusable");
+	Node *container = memnew(Node);
+	container->set_name("Container");
+	source->add_child(container);
+	container->set_owner(source);
+	container->set_process_priority(20);
+	Node *exposed = memnew(Node);
+	exposed->set_name("Exposed");
+	container->add_child(exposed);
+	exposed->set_owner(source);
+	exposed->set_process_priority(15);
+	Node *hidden = memnew(Node);
+	hidden->set_name("Hidden");
+	container->add_child(hidden);
+	hidden->set_owner(source);
+	hidden->set_process_priority(8);
+	TypedArray<NodePath> paths;
+	paths.push_back(NodePath("Container/Exposed"));
+	source->set_inspector_exposed_nodes(paths);
+
+	Ref<PackedScene> reusable = memnew(PackedScene);
+	REQUIRE(reusable->pack(source) == OK);
+	// A cached path lets packing resolve this instance without filesystem dependencies.
+	reusable->set_path("res://test_inspector_exposed_nodes.tscn");
+	Node *level = memnew(Node);
+	level->set_name("Level");
+	Node *instance = reusable->instantiate(PackedScene::GEN_EDIT_STATE_INSTANCE);
+	REQUIRE(instance != nullptr);
+	level->add_child(instance);
+	instance->set_owner(level);
+	CHECK_FALSE(level->is_editable_instance(instance));
+	CHECK(level->is_node_exposed_in_inspector(instance->get_node(NodePath("Container/Exposed"))));
+	CHECK_FALSE(level->is_node_exposed_in_inspector(instance->get_node(NodePath("Container"))));
+	CHECK_FALSE(level->is_node_exposed_in_inspector(instance->get_node(NodePath("Container/Hidden"))));
+
+	Ref<PackedScene> packed_level = memnew(PackedScene);
+	REQUIRE(packed_level->pack(level) == OK);
+	CHECK(packed_level->get_state()->get_node_count() == 2); // No unchanged child overrides.
+	instance->get_node(NodePath("Container/Exposed"))->set_process_priority(37);
+	instance->get_node(NodePath("Container"))->set_process_priority(999); // Traversal must not save this.
+	instance->get_node(NodePath("Container/Hidden"))->set_process_priority(999);
+	REQUIRE(packed_level->pack(level) == OK);
+	CHECK(packed_level->get_state()->get_node_count() == 3);
+	Node *loaded = packed_level->instantiate(PackedScene::GEN_EDIT_STATE_INSTANCE);
+	REQUIRE(loaded != nullptr);
+	CHECK(loaded->get_node(NodePath("Reusable/Container/Exposed"))->get_process_priority() == 37);
+	CHECK(loaded->get_node(NodePath("Reusable/Container"))->get_process_priority() == 20);
+	CHECK(loaded->get_node(NodePath("Reusable/Container/Hidden"))->get_process_priority() == 8);
+
+	// Hiding the Inspector controls must keep the already-authored property override.
+	instance->set_inspector_exposed_nodes(TypedArray<NodePath>());
+	CHECK_FALSE(level->is_node_exposed_in_inspector(instance->get_node(NodePath("Container/Exposed"))));
+	REQUIRE(packed_level->pack(level) == OK);
+	Node *unexposed = packed_level->instantiate(PackedScene::GEN_EDIT_STATE_INSTANCE);
+	REQUIRE(unexposed != nullptr);
+	CHECK(unexposed->get_node(NodePath("Reusable"))->get_inspector_exposed_nodes().is_empty());
+	CHECK(unexposed->get_node(NodePath("Reusable/Container/Exposed"))->get_process_priority() == 37);
+	Ref<PackedScene> repacked = memnew(PackedScene);
+	REQUIRE(repacked->pack(unexposed) == OK);
+	Node *reloaded = repacked->instantiate(PackedScene::GEN_EDIT_STATE_INSTANCE);
+	REQUIRE(reloaded != nullptr);
+	CHECK(reloaded->get_node(NodePath("Reusable/Container/Exposed"))->get_process_priority() == 37);
+	Node *duplicate = reloaded->get_node(NodePath("Reusable"))->duplicate();
+	REQUIRE(duplicate != nullptr);
+	CHECK(duplicate->get_node(NodePath("Container/Exposed"))->get_process_priority() == 37);
+	CHECK(duplicate->get_inspector_exposed_nodes().is_empty());
+
+	memdelete(duplicate);
+	memdelete(reloaded);
+	memdelete(unexposed);
+	memdelete(loaded);
+	memdelete(level);
+	memdelete(source);
+}
+
+TEST_CASE("[PackedScene] Inspector exposure validates paths without aliases") {
+	Node *source = memnew(Node);
+	Node *child = memnew(Node);
+	child->set_name("Child");
+	source->add_child(child);
+	child->set_owner(source);
+	TypedArray<NodePath> paths;
+	paths.push_back(NodePath("Child"));
+	paths.push_back(NodePath("Missing"));
+	paths.push_back(NodePath("Missing"));
+	paths.push_back(NodePath("."));
+	paths.push_back(NodePath(".."));
+	paths.push_back(NodePath("Child:process_priority"));
+	source->set_inspector_exposed_nodes(paths);
+	CHECK(source->get_configuration_warnings().size() == 4);
+	CHECK(source->is_node_exposed_in_inspector(child));
+	paths.clear();
+	CHECK(source->get_inspector_exposed_nodes().size() == 6); // The setter owns its array.
+	TypedArray<NodePath> copy = source->get_inspector_exposed_nodes();
+	copy.clear();
+	CHECK(source->is_node_exposed_in_inspector(child)); // The getter also returns a copy.
+	memdelete(source);
+}
+
+TEST_CASE("[PackedScene] Inspector exposure child checkbox uses its owning scene") {
+	Node *level = memnew(Node);
+	level->set_name("Level");
+	Node *reusable = memnew(Node);
+	reusable->set_name("Reusable");
+	level->add_child(reusable);
+	reusable->set_owner(level);
+	Node *container = memnew(Node);
+	container->set_name("Container");
+	reusable->add_child(container);
+	container->set_owner(reusable);
+	Node *child = memnew(Node);
+	child->set_name("Child");
+	container->add_child(child);
+	child->set_owner(reusable);
+
+	CHECK_FALSE(child->is_inspector_exposed_in_scene());
+	UndoRedo *undo_redo = memnew(UndoRedo);
+	undo_redo->create_action("Expose child");
+	undo_redo->add_do_property(child, "inspector_exposed_in_scene", true);
+	undo_redo->add_undo_property(child, "inspector_exposed_in_scene", false);
+	undo_redo->commit_action();
+	CHECK(child->is_inspector_exposed_in_scene());
+	CHECK(reusable->get_inspector_exposed_nodes().size() == 1);
+	CHECK(reusable->get_inspector_exposed_nodes()[0] == NodePath("Container/Child"));
+	CHECK(level->get_inspector_exposed_nodes().is_empty()); // Nearest scene only.
+	undo_redo->undo();
+	CHECK_FALSE(child->is_inspector_exposed_in_scene());
+	CHECK(reusable->get_inspector_exposed_nodes().is_empty());
+	undo_redo->redo();
+	CHECK(child->is_inspector_exposed_in_scene());
+	HashSet<StringName> storable;
+	child->get_storable_properties(storable);
+	CHECK_FALSE(storable.has("inspector_exposed_in_scene")); // No duplicate serialized flag.
+
+	Ref<PackedScene> packed = memnew(PackedScene);
+	REQUIRE(packed->pack(reusable) == OK);
+	Node *loaded = packed->instantiate(PackedScene::GEN_EDIT_STATE_INSTANCE);
+	REQUIRE(loaded != nullptr);
+	CHECK(loaded->get_node(NodePath("Container/Child"))->is_inspector_exposed_in_scene());
+	loaded->get_node(NodePath("Container/Child"))->set_inspector_exposed_in_scene(false);
+	CHECK(loaded->get_inspector_exposed_nodes().is_empty());
+	CHECK_FALSE(level->is_inspector_exposed_in_scene());
+
+	memdelete(loaded);
+	memdelete(undo_redo);
+	memdelete(level);
+}
+#endif // TOOLS_ENABLED
 
 } // namespace TestPackedScene

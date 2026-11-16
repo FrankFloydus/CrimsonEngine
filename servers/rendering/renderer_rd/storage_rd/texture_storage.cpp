@@ -3772,6 +3772,10 @@ void TextureStorage::decal_initialize(RID p_decal) {
 
 void TextureStorage::decal_free(RID p_rid) {
 	Decal *decal = decal_owner.get_or_null(p_rid);
+
+	if (decal->roughness_affects_ssr) {
+		ssr_roughness_decal_count--;
+	}
 	for (int i = 0; i < RSE::DECAL_TEXTURE_MAX; i++) {
 		if (decal->textures[i].is_valid() && owns_texture(decal->textures[i])) {
 			texture_remove_from_decal_atlas(decal->textures[i]);
@@ -3822,6 +3826,26 @@ void TextureStorage::decal_set_albedo_mix(RID p_decal, float p_mix) {
 	Decal *decal = decal_owner.get_or_null(p_decal);
 	ERR_FAIL_NULL(decal);
 	decal->albedo_mix = p_mix;
+}
+
+void TextureStorage::decal_set_orm_channels(RID p_decal, BitField<RSE::DecalORMChannel> p_channels) {
+	Decal *decal = decal_owner.get_or_null(p_decal);
+	ERR_FAIL_NULL(decal);
+	decal->orm_channels = uint32_t(p_channels.get_shared(RSE::DECAL_ORM_CHANNEL_ALL));
+}
+
+void TextureStorage::decal_set_roughness_affects_ssr(RID p_decal, bool p_enabled) {
+	Decal *decal = decal_owner.get_or_null(p_decal);
+	ERR_FAIL_NULL(decal);
+	if (decal->roughness_affects_ssr == p_enabled) {
+		return;
+	}
+	decal->roughness_affects_ssr = p_enabled;
+	if (p_enabled) {
+		ssr_roughness_decal_count++;
+	} else {
+		ssr_roughness_decal_count--;
+	}
 }
 
 void TextureStorage::decal_set_modulate(RID p_decal, const Color &p_modulate) {
@@ -4232,6 +4256,35 @@ void TextureStorage::set_max_decals(const uint32_t p_max_decals) {
 	decal_buffer = RD::get_singleton()->storage_buffer_create(decal_buffer_size);
 }
 
+bool TextureStorage::has_ssr_roughness_decals(const PagedArray<RID> &p_decals, const Vector3 &p_camera_position) const {
+	if (ssr_roughness_decal_count == 0) {
+		return false;
+	}
+	uint32_t visible_decals = 0;
+	for (uint32_t i = 0; i < p_decals.size() && visible_decals < max_decals; i++) {
+		const DecalInstance *instance = decal_instance_owner.get_or_null(p_decals[i]);
+		if (!instance) {
+			continue;
+		}
+		const Decal *decal = decal_owner.get_or_null(instance->decal);
+		if (!decal) {
+			continue;
+		}
+		if (decal->distance_fade) {
+			const real_t distance = p_camera_position.distance_to(instance->transform.origin);
+			if (distance > decal->distance_fade_begin && distance > decal->distance_fade_begin + decal->distance_fade_length) {
+				continue;
+			}
+		}
+		visible_decals++;
+		if (decal->roughness_affects_ssr && (decal->orm_channels & RSE::DECAL_ORM_CHANNEL_ROUGHNESS) != 0 &&
+				decal->textures[RSE::DECAL_TEXTURE_ALBEDO].is_valid() && decal->textures[RSE::DECAL_TEXTURE_ORM].is_valid() && decal->cull_mask != 0) {
+			return true;
+		}
+	}
+	return false;
+}
+
 void TextureStorage::update_decal_buffer(const PagedArray<RID> &p_decals, const Transform3D &p_camera_xform) {
 	ForwardIDStorage *forward_id_storage = ForwardIDStorage::get_singleton();
 
@@ -4396,6 +4449,8 @@ void TextureStorage::update_decal_buffer(const PagedArray<RID> &p_decals, const 
 		dd.modulate[3] = modulate.a * fade;
 		dd.emission_energy = decal->emission_energy * fade;
 		dd.albedo_mix = decal->albedo_mix;
+		dd.orm_channels = decal->orm_channels;
+		dd.roughness_affects_ssr = decal->roughness_affects_ssr ? 1u : 0u;
 		dd.mask = decal->cull_mask;
 		dd.upper_fade = decal->upper_fade;
 		dd.lower_fade = decal->lower_fade;

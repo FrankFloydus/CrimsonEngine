@@ -89,6 +89,27 @@ real_t Decal::get_albedo_mix() const {
 	return albedo_mix;
 }
 
+void Decal::set_orm_channels(BitField<ORMChannel> p_channels) {
+	orm_channels = p_channels.get_shared(ORM_CHANNEL_ALL);
+	RS::get_singleton()->decal_set_orm_channels(decal, uint32_t(orm_channels));
+}
+
+BitField<Decal::ORMChannel> Decal::get_orm_channels() const {
+	return orm_channels;
+}
+
+void Decal::set_roughness_affects_ssr(bool p_enabled) {
+	if (roughness_affects_ssr == p_enabled) {
+		return;
+	}
+	roughness_affects_ssr = p_enabled;
+	RS::get_singleton()->decal_set_roughness_affects_ssr(decal, p_enabled);
+}
+
+bool Decal::is_roughness_affecting_ssr() const {
+	return roughness_affects_ssr;
+}
+
 void Decal::set_upper_fade(real_t p_fade) {
 	upper_fade = MAX(p_fade, 0.0);
 	RS::get_singleton()->decal_set_fade(decal, upper_fade, lower_fade);
@@ -212,6 +233,12 @@ void Decal::_bind_methods() {
 	ClassDB::bind_method(D_METHOD("set_albedo_mix", "energy"), &Decal::set_albedo_mix);
 	ClassDB::bind_method(D_METHOD("get_albedo_mix"), &Decal::get_albedo_mix);
 
+	ClassDB::bind_method(D_METHOD("set_orm_channels", "channels"), &Decal::set_orm_channels);
+	ClassDB::bind_method(D_METHOD("get_orm_channels"), &Decal::get_orm_channels);
+
+	ClassDB::bind_method(D_METHOD("set_roughness_affects_ssr", "enabled"), &Decal::set_roughness_affects_ssr);
+	ClassDB::bind_method(D_METHOD("is_roughness_affecting_ssr"), &Decal::is_roughness_affecting_ssr);
+
 	ClassDB::bind_method(D_METHOD("set_modulate", "color"), &Decal::set_modulate);
 	ClassDB::bind_method(D_METHOD("get_modulate"), &Decal::get_modulate);
 
@@ -250,6 +277,8 @@ void Decal::_bind_methods() {
 	ADD_PROPERTY(PropertyInfo(Variant::FLOAT, "emission_energy", PROPERTY_HINT_RANGE, "0,16,0.01,or_greater"), "set_emission_energy", "get_emission_energy");
 	ADD_PROPERTY(PropertyInfo(Variant::COLOR, "modulate"), "set_modulate", "get_modulate");
 	ADD_PROPERTY(PropertyInfo(Variant::FLOAT, "albedo_mix", PROPERTY_HINT_RANGE, "0,1,0.01"), "set_albedo_mix", "get_albedo_mix");
+	ADD_PROPERTY(PropertyInfo(Variant::INT, "orm_channels", PROPERTY_HINT_FLAGS, "Ambient Occlusion,Roughness,Metallic"), "set_orm_channels", "get_orm_channels");
+	ADD_PROPERTY(PropertyInfo(Variant::BOOL, "roughness_affects_ssr"), "set_roughness_affects_ssr", "is_roughness_affecting_ssr");
 	// A Normal Fade of 1.0 causes the decal to be invisible even if fully perpendicular to a surface.
 	// Due to this, limit Normal Fade to 0.999.
 	ADD_PROPERTY(PropertyInfo(Variant::FLOAT, "normal_fade", PROPERTY_HINT_RANGE, "0,0.999,0.001"), "set_normal_fade", "get_normal_fade");
@@ -271,6 +300,11 @@ void Decal::_bind_methods() {
 	BIND_ENUM_CONSTANT(TEXTURE_ORM);
 	BIND_ENUM_CONSTANT(TEXTURE_EMISSION);
 	BIND_ENUM_CONSTANT(TEXTURE_MAX);
+
+	BIND_BITFIELD_FLAG(ORM_CHANNEL_AO);
+	BIND_BITFIELD_FLAG(ORM_CHANNEL_ROUGHNESS);
+	BIND_BITFIELD_FLAG(ORM_CHANNEL_METALLIC);
+	BIND_BITFIELD_FLAG(ORM_CHANNEL_ALL);
 }
 
 #ifndef DISABLE_DEPRECATED

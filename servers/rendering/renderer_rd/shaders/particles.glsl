@@ -132,6 +132,9 @@ particles;
 #define EMISSION_FLAG_HAS_COLOR 8
 #define EMISSION_FLAG_HAS_CUSTOM 16
 
+#define EMISSION_SOURCE_CPU 1u
+#define EMISSION_SOURCE_GPU 2u
+
 struct ParticleEmission {
 	mat4 xform;
 	vec3 velocity;
@@ -148,6 +151,15 @@ layout(set = 1, binding = 2, std430) restrict buffer SourceEmission {
 	ParticleEmission data[];
 }
 src_particles;
+
+layout(set = 1, binding = 4, std430) restrict buffer CpuEmission {
+	int particle_count;
+	uint pad0;
+	uint pad1;
+	uint pad2;
+	ParticleEmission data[];
+}
+cpu_particles;
 
 layout(set = 1, binding = 3, std430) restrict buffer DestEmission {
 	int particle_count;
@@ -181,7 +193,7 @@ layout(push_constant, std430) uniform Params {
 	uint total_particles;
 	uint trail_size;
 	bool use_fractional_delta;
-	bool sub_emitter_mode;
+	uint emission_sources;
 	bool can_emit;
 	bool trail_pass;
 }
@@ -339,45 +351,58 @@ void main() {
 	}
 #endif
 
-	if (!params.trail_pass && params.sub_emitter_mode) {
+	if (!params.trail_pass && params.emission_sources != 0u) {
 		if (!bool(PARTICLE.flags & PARTICLE_FLAG_ACTIVE)) {
-			int src_index = atomicAdd(src_particles.particle_count, -1) - 1;
+			int cpu_index = -1;
+			int gpu_index = -1;
+			if ((params.emission_sources & EMISSION_SOURCE_CPU) != 0u) {
+				cpu_index = atomicAdd(cpu_particles.particle_count, -1) - 1;
+			}
+			if (cpu_index < 0 && (params.emission_sources & EMISSION_SOURCE_GPU) != 0u) {
+				gpu_index = atomicAdd(src_particles.particle_count, -1) - 1;
+			}
 
-			if (src_index >= 0) {
+			if (cpu_index >= 0 || gpu_index >= 0) {
+				ParticleEmission emission;
+				if (cpu_index >= 0) {
+					emission = cpu_particles.data[cpu_index];
+				} else {
+					emission = src_particles.data[gpu_index];
+				}
 				PARTICLE.flags = (PARTICLE_FLAG_ACTIVE | PARTICLE_FLAG_STARTED | (FRAME.cycle << PARTICLE_FRAME_SHIFT));
 				restart = true;
 
-				if (bool(src_particles.data[src_index].flags & EMISSION_FLAG_HAS_POSITION)) {
-					PARTICLE.xform[3] = src_particles.data[src_index].xform[3];
+				if (bool(emission.flags & EMISSION_FLAG_HAS_POSITION)) {
+					PARTICLE.xform[3] = emission.xform[3];
 				} else {
 					PARTICLE.xform[3] = vec4(0, 0, 0, 1);
 					restart_position = true;
 				}
-				if (bool(src_particles.data[src_index].flags & EMISSION_FLAG_HAS_ROTATION_SCALE)) {
-					PARTICLE.xform[0] = src_particles.data[src_index].xform[0];
-					PARTICLE.xform[1] = src_particles.data[src_index].xform[1];
-					PARTICLE.xform[2] = src_particles.data[src_index].xform[2];
+				if (bool(emission.flags & EMISSION_FLAG_HAS_ROTATION_SCALE)) {
+					PARTICLE.xform[0] = emission.xform[0];
+					PARTICLE.xform[1] = emission.xform[1];
+					PARTICLE.xform[2] = emission.xform[2];
 				} else {
 					PARTICLE.xform[0] = vec4(1, 0, 0, 0);
 					PARTICLE.xform[1] = vec4(0, 1, 0, 0);
 					PARTICLE.xform[2] = vec4(0, 0, 1, 0);
 					restart_rotation_scale = true;
 				}
-				if (bool(src_particles.data[src_index].flags & EMISSION_FLAG_HAS_VELOCITY)) {
-					PARTICLE.velocity = src_particles.data[src_index].velocity;
+				if (bool(emission.flags & EMISSION_FLAG_HAS_VELOCITY)) {
+					PARTICLE.velocity = emission.velocity;
 				} else {
 					PARTICLE.velocity = vec3(0);
 					restart_velocity = true;
 				}
-				if (bool(src_particles.data[src_index].flags & EMISSION_FLAG_HAS_COLOR)) {
-					PARTICLE.color = src_particles.data[src_index].color;
+				if (bool(emission.flags & EMISSION_FLAG_HAS_COLOR)) {
+					PARTICLE.color = emission.color;
 				} else {
 					PARTICLE.color = vec4(1);
 					restart_color = true;
 				}
 
-				if (bool(src_particles.data[src_index].flags & EMISSION_FLAG_HAS_CUSTOM)) {
-					PARTICLE.custom = src_particles.data[src_index].custom;
+				if (bool(emission.flags & EMISSION_FLAG_HAS_CUSTOM)) {
+					PARTICLE.custom = emission.custom;
 				} else {
 					PARTICLE.custom = vec4(0);
 					restart_custom = true;

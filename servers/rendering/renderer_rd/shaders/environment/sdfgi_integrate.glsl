@@ -54,6 +54,7 @@ layout(set = 1, binding = 1) uniform sampler linear_sampler_mipmaps;
 #define SKY_FLAGS_MODE_COLOR 0x01
 #define SKY_FLAGS_MODE_SKY 0x02
 #define SKY_FLAGS_ORIENTATION_SIGN 0x04
+#define SKY_FLAGS_WORLD_SPACE_IRRADIANCE 0x08
 
 layout(push_constant, std430) uniform Params {
 	vec3 grid_size;
@@ -86,11 +87,14 @@ params;
 const float PI = 3.14159265f;
 const float GOLDEN_ANGLE = PI * (3.0 - sqrt(5.0));
 
-vec3 vogel_hemisphere(uint p_index, uint p_count, float p_offset) {
+vec3 vogel_hemisphere(uint p_index, uint p_count, float p_offset, out float r_solid_angle_weight) {
 	float r = sqrt(float(p_index) + 0.5f) / sqrt(float(p_count));
 	float theta = float(p_index) * GOLDEN_ANGLE + p_offset;
-	float y = cos(r * PI * 0.5);
-	float l = sin(r * PI * 0.5);
+	float polar = r * PI * 0.5;
+	float y = cos(polar);
+	float l = sin(polar);
+	// Equal disc area does not imply equal solid angle under the polar map.
+	r_solid_angle_weight = bool(params.sky_flags & SKY_FLAGS_WORLD_SPACE_IRRADIANCE) ? (PI * PI * 0.125) * l / polar : 1.0;
 	return vec3(l * cos(theta), l * sin(theta), y * (float(p_index & 1) * 2.0 - 1.0));
 }
 
@@ -187,9 +191,14 @@ void main() {
 	uint ray_total = ray_mult * params.ray_count;
 
 	for (uint i = 0; i < params.ray_count; i++) {
-		vec3 ray_dir = vogel_hemisphere(ray_offset + i * ray_mult, ray_total, offset);
+		float solid_angle_weight;
+		vec3 world_direction = vogel_hemisphere(ray_offset + i * ray_mult, ray_total, offset, solid_angle_weight);
+		// Geometry is stored in compressed Y. The probe can integrate the original world direction.
+		vec3 ray_dir = world_direction;
 		ray_dir.y *= params.y_mult;
 		ray_dir = normalize(ray_dir);
+		bool world_space = bool(params.sky_flags & SKY_FLAGS_WORLD_SPACE_IRRADIANCE);
+		vec3 lighting_direction = world_space ? world_direction : ray_dir;
 
 		//needs to be visible
 		vec3 ray_pos = probe_pos;
@@ -269,11 +278,11 @@ void main() {
 			}
 
 		} else if (bool(params.sky_flags & SKY_FLAGS_MODE_SKY)) {
-			// Reconstruct sky orientation as quaternion and rotate ray_dir before sampling.
+			// Reconstruct sky orientation as quaternion and rotate the lighting direction before sampling.
 			float sky_sign = bool(params.sky_flags & SKY_FLAGS_ORIENTATION_SIGN) ? 1.0 : -1.0;
 			vec4 sky_quat = vec4(params.sky_color_or_orientation, sky_sign * sqrt(1.0 - dot(params.sky_color_or_orientation, params.sky_color_or_orientation)));
-			vec3 sky_dir = cross(sky_quat.xyz, ray_dir);
-			sky_dir = ray_dir + ((sky_dir * sky_quat.w) + cross(sky_quat.xyz, sky_dir)) * 2.0;
+			vec3 sky_dir = cross(sky_quat.xyz, lighting_direction);
+			sky_dir = lighting_direction + ((sky_dir * sky_quat.w) + cross(sky_quat.xyz, sky_dir)) * 2.0;
 #ifdef USE_RADIANCE_OCTMAP_ARRAY
 			light.rgb = textureLod(sampler2DArray(sky_irradiance, linear_sampler_mipmaps), vec3(vec3_to_oct_with_border(sky_dir, params.sky_irradiance_border_size), 0.0), 2.0).rgb; // Use second mipmap because we don't usually throw a lot of rays, so this compensates.
 #else
@@ -290,7 +299,10 @@ void main() {
 			light = vec4(0, 0, 0, 0);
 		}
 
-		vec3 ray_dir2 = ray_dir * ray_dir;
+		if (world_space) {
+			light.rgb *= solid_angle_weight;
+		}
+		vec3 lighting_direction2 = lighting_direction * lighting_direction;
 
 #define SH_ACCUM(m_idx, m_value) \
 	{ \
@@ -300,22 +312,22 @@ void main() {
 		sh_accum[probe_index].c[m_idx * 3 + 2] += l.b; \
 	}
 		SH_ACCUM(0, 0.282095); //l0
-		SH_ACCUM(1, 0.488603 * ray_dir.y); //l1n1
-		SH_ACCUM(2, 0.488603 * ray_dir.z); //l1n0
-		SH_ACCUM(3, 0.488603 * ray_dir.x); //l1p1
-		SH_ACCUM(4, 1.092548 * ray_dir.x * ray_dir.y); //l2n2
-		SH_ACCUM(5, 1.092548 * ray_dir.y * ray_dir.z); //l2n1
-		SH_ACCUM(6, 0.315392 * (3.0 * ray_dir2.z - 1.0)); //l20
-		SH_ACCUM(7, 1.092548 * ray_dir.x * ray_dir.z); //l2p1
-		SH_ACCUM(8, 0.546274 * (ray_dir2.x - ray_dir2.y)); //l2p2
+		SH_ACCUM(1, 0.488603 * lighting_direction.y); //l1n1
+		SH_ACCUM(2, 0.488603 * lighting_direction.z); //l1n0
+		SH_ACCUM(3, 0.488603 * lighting_direction.x); //l1p1
+		SH_ACCUM(4, 1.092548 * lighting_direction.x * lighting_direction.y); //l2n2
+		SH_ACCUM(5, 1.092548 * lighting_direction.y * lighting_direction.z); //l2n1
+		SH_ACCUM(6, 0.315392 * (3.0 * lighting_direction2.z - 1.0)); //l20
+		SH_ACCUM(7, 1.092548 * lighting_direction.x * lighting_direction.z); //l2p1
+		SH_ACCUM(8, 0.546274 * (lighting_direction2.x - lighting_direction2.y)); //l2p2
 #if (SH_SIZE == 16)
-		SH_ACCUM(9, 0.590043 * ray_dir.y * (3.0f * ray_dir2.x - ray_dir2.y));
-		SH_ACCUM(10, 2.890611 * ray_dir.y * ray_dir.x * ray_dir.z);
-		SH_ACCUM(11, 0.646360 * ray_dir.y * (-1.0f + 5.0f * ray_dir2.z));
-		SH_ACCUM(12, 0.373176 * (5.0f * ray_dir2.z * ray_dir.z - 3.0f * ray_dir.z));
-		SH_ACCUM(13, 0.457045 * ray_dir.x * (-1.0f + 5.0f * ray_dir2.z));
-		SH_ACCUM(14, 1.445305 * (ray_dir2.x - ray_dir2.y) * ray_dir.z);
-		SH_ACCUM(15, 0.590043 * ray_dir.x * (ray_dir2.x - 3.0f * ray_dir2.y));
+		SH_ACCUM(9, 0.590043 * lighting_direction.y * (3.0f * lighting_direction2.x - lighting_direction2.y));
+		SH_ACCUM(10, 2.890611 * lighting_direction.y * lighting_direction.x * lighting_direction.z);
+		SH_ACCUM(11, 0.646360 * lighting_direction.y * (-1.0f + 5.0f * lighting_direction2.z));
+		SH_ACCUM(12, 0.373176 * (5.0f * lighting_direction2.z * lighting_direction.z - 3.0f * lighting_direction.z));
+		SH_ACCUM(13, 0.457045 * lighting_direction.x * (-1.0f + 5.0f * lighting_direction2.z));
+		SH_ACCUM(14, 1.445305 * (lighting_direction2.x - lighting_direction2.y) * lighting_direction.z);
+		SH_ACCUM(15, 0.590043 * lighting_direction.x * (lighting_direction2.x - 3.0f * lighting_direction2.y));
 
 #endif
 	}
@@ -359,6 +371,10 @@ void main() {
 
 	//compute the octahedral normal for this texel
 	vec3 normal = octahedron_encode(vec2(local_pos) / float(OCT_SIZE));
+	// Keep the atlas lookup coordinates used by the renderer and decode them into world directions.
+	if (bool(params.sky_flags & SKY_FLAGS_WORLD_SPACE_IRRADIANCE)) {
+		normal = normalize(normal * vec3(1.0, 1.0 / params.y_mult, 1.0));
+	}
 
 	// read the spherical harmonic
 

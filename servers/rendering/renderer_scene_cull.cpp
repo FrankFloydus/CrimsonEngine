@@ -767,6 +767,7 @@ void RendererSceneCull::instance_set_base(RID p_instance, RID p_base) {
 				geom->geometry_instance->set_pivot_data(instance->sorting_offset, instance->use_aabb_center);
 				geom->geometry_instance->set_lod_bias(instance->lod_bias);
 				geom->geometry_instance->set_transparency(instance->transparency);
+				geom->geometry_instance->set_render_after_dof(instance->render_after_dof);
 				geom->geometry_instance->set_use_baked_light(instance->baked_light);
 				geom->geometry_instance->set_use_dynamic_gi(instance->dynamic_gi);
 				geom->geometry_instance->set_use_lightmap(RID(), instance->lightmap_uv_scale, instance->lightmap_slice_index);
@@ -1014,6 +1015,19 @@ void RendererSceneCull::instance_geometry_set_transparency(RID p_instance, float
 		InstanceGeometryData *geom = static_cast<InstanceGeometryData *>(instance->base_data);
 		ERR_FAIL_NULL(geom->geometry_instance);
 		geom->geometry_instance->set_transparency(p_transparency);
+	}
+}
+
+void RendererSceneCull::instance_geometry_set_render_after_dof(RID p_instance, bool p_enabled) {
+	Instance *instance = instance_owner.get_or_null(p_instance);
+	ERR_FAIL_NULL(instance);
+
+	instance->render_after_dof = p_enabled;
+
+	if ((1 << instance->base_type) & RSE::INSTANCE_GEOMETRY_MASK && instance->base_data) {
+		InstanceGeometryData *geom = static_cast<InstanceGeometryData *>(instance->base_data);
+		ERR_FAIL_NULL(geom->geometry_instance);
+		geom->geometry_instance->set_render_after_dof(p_enabled);
 	}
 }
 
@@ -1600,6 +1614,26 @@ void RendererSceneCull::instance_geometry_set_shader_parameter(RID p_instance, c
 	ERR_FAIL_NULL(instance);
 
 	instance->instance_uniforms.set(instance->self, p_parameter, p_value);
+}
+
+void RendererSceneCull::instance_invalidate_sdfgi(RID p_instance) {
+	Instance *instance = instance_owner.get_or_null(p_instance);
+	if (!instance || !instance->scenario || !instance->visible || !instance->baked_light ||
+			!((1 << instance->base_type) & RSE::INSTANCE_GEOMETRY_MASK)) {
+		return;
+	}
+
+	if (instance->update_item.in_list()) {
+		_update_dirty_instance(instance);
+	}
+	const AABB &bounds = instance->transformed_aabb;
+	if (!bounds.has_surface() || !bounds.is_finite()) {
+		return;
+	}
+
+	RendererSceneRender::SDFGIGeometryChanges &changes = instance->scenario->sdfgi_geometry_changes;
+	changes.regions[changes.revision % RendererSceneRender::SDFGIGeometryChanges::MAX_REGIONS] = bounds;
+	changes.revision++;
 }
 
 Variant RendererSceneCull::instance_geometry_get_shader_parameter(RID p_instance, const StringName &p_parameter) const {
@@ -3339,7 +3373,7 @@ void RendererSceneCull::_render_scene(const RendererSceneRender::CameraData *p_c
 
 	if (p_reflection_probe.is_null()) {
 		//no rendering code here, this is only to set up what needs to be done, request regions, etc.
-		scene_render->sdfgi_update(p_render_buffers, p_environment, camera_position); //update conditions for SDFGI (whether its used or not)
+		scene_render->sdfgi_update(p_render_buffers, p_environment, camera_position, p_scenario, scenario->sdfgi_geometry_changes); //update conditions for SDFGI (whether its used or not)
 	}
 
 	RENDER_TIMESTAMP("Update Visibility Dependencies");

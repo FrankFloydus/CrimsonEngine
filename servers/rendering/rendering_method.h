@@ -96,6 +96,7 @@ public:
 	virtual void instance_set_surface_override_material(RID p_instance, int p_surface, RID p_material) = 0;
 	virtual void instance_set_visible(RID p_instance, bool p_visible) = 0;
 	virtual void instance_geometry_set_transparency(RID p_instance, float p_transparency) = 0;
+	virtual void instance_geometry_set_render_after_dof(RID p_instance, bool p_enabled) = 0;
 
 	virtual void instance_teleport(RID p_instance) = 0;
 
@@ -122,6 +123,7 @@ public:
 	virtual void instance_geometry_set_lightmap(RID p_instance, RID p_lightmap, const Rect2 &p_lightmap_uv_scale, int p_slice_index) = 0;
 	virtual void instance_geometry_set_lod_bias(RID p_instance, float p_lod_bias) = 0;
 	virtual void instance_geometry_set_shader_parameter(RID p_instance, const StringName &p_parameter, const Variant &p_value) = 0;
+	virtual void instance_invalidate_sdfgi(RID p_instance) = 0;
 	virtual void instance_geometry_get_shader_parameter_list(RID p_instance, List<PropertyInfo> *p_parameters) const = 0;
 	virtual Variant instance_geometry_get_shader_parameter(RID p_instance, const StringName &p_parameter) const = 0;
 	virtual Variant instance_geometry_get_shader_parameter_default_value(RID p_instance, const StringName &p_parameter) const = 0;
@@ -216,6 +218,7 @@ public:
 
 	// Depth Fog
 	virtual void environment_set_fog_depth(RID p_env, float p_curve, float p_begin, float p_end) = 0;
+	virtual void environment_set_fog_height_integrated(RID p_env, bool p_enabled, float p_falloff, float p_start_distance) = 0;
 
 	virtual float environment_get_fog_depth_curve(RID p_env) const = 0;
 	virtual float environment_get_fog_depth_begin(RID p_env) const = 0;
@@ -302,6 +305,8 @@ public:
 
 	// SDFGI
 	virtual void environment_set_sdfgi(RID p_env, bool p_enable, int p_cascades, float p_min_cell_size, RSE::EnvironmentSDFGIYScale p_y_scale, bool p_use_occlusion, float p_bounce_feedback, bool p_read_sky, float p_energy, float p_normal_bias, float p_probe_bias) = 0;
+	virtual void environment_set_sdfgi_contact_refinement(RID p_env, float p_radius, float p_strength) = 0;
+	virtual void environment_set_sdfgi_world_space_irradiance(RID p_env, bool p_enabled) = 0;
 
 	virtual bool environment_get_sdfgi_enabled(RID p_env) const = 0;
 	virtual int environment_get_sdfgi_cascades(RID p_env) const = 0;

@@ -335,7 +335,7 @@ struct ImplementationData {
 	uint ss_effects_flags;
 	float ssao_light_affect;
 	float ssao_ao_affect;
-	uint pad1;
+	uint prepass_roughness_decals;
 
 	mat4 sdf_to_bounds;
 
@@ -493,6 +493,25 @@ layout(set = 1, binding = 37) uniform texture2DArray sscs_buffer;
 #endif // USE_MULTIVIEW
 
 #endif
+
+vec3 directional_projector_transmission(uint light_index, vec3 view_position) {
+	vec4 rect = directional_lights.data[light_index].projector_rect;
+	if (rect.z <= 0.0) {
+		return vec3(1.0);
+	}
+
+	vec4 position = vec4(view_position, 1.0);
+	vec2 uv = vec2(dot(directional_lights.data[light_index].projector_uv[0], position),
+			dot(directional_lights.data[light_index].projector_uv[1], position));
+	vec2 edge = min(uv, 1.0 - uv);
+	float edge_distance = min(edge.x, edge.y);
+	if (edge_distance <= 0.0) {
+		return vec3(1.0);
+	}
+
+	vec4 transmission = textureLod(sampler2D(decal_atlas, SAMPLER_LINEAR_CLAMP), rect.xy + uv * rect.zw, 0.0);
+	return mix(vec3(1.0), transmission.rgb, transmission.a * smoothstep(0.0, 0.04, edge_distance));
+}
 
 vec4 normal_roughness_compatibility(vec4 p_normal_roughness) {
 	float roughness = p_normal_roughness.w;

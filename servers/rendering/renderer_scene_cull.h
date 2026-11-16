@@ -355,6 +355,7 @@ public:
 		SelfList<Instance>::List instances;
 
 		LocalVector<RID> dynamic_lights;
+		RendererSceneRender::SDFGIGeometryChanges sdfgi_geometry_changes;
 
 		PagedArray<InstanceBounds> instance_aabbs;
 		PagedArray<InstanceData> instance_data;
@@ -465,6 +466,7 @@ public:
 		HashSet<Instance *> visibility_dependencies;
 		uint32_t visibility_dependencies_depth = 0;
 		float transparency = 0.0f;
+		bool render_after_dof = false;
 		Scenario *scenario = nullptr;
 		SelfList<Instance> scenario_item;
 
@@ -1037,6 +1039,7 @@ public:
 	virtual void instance_set_surface_override_material(RID p_instance, int p_surface, RID p_material);
 	virtual void instance_set_visible(RID p_instance, bool p_visible);
 	virtual void instance_geometry_set_transparency(RID p_instance, float p_transparency);
+	virtual void instance_geometry_set_render_after_dof(RID p_instance, bool p_enabled);
 
 	virtual void instance_teleport(RID p_instance);
 
@@ -1069,6 +1072,7 @@ public:
 	virtual void instance_geometry_set_lod_bias(RID p_instance, float p_lod_bias);
 
 	virtual void instance_geometry_set_shader_parameter(RID p_instance, const StringName &p_parameter, const Variant &p_value);
+	virtual void instance_invalidate_sdfgi(RID p_instance);
 	virtual void instance_geometry_get_shader_parameter_list(RID p_instance, List<PropertyInfo> *p_parameters) const;
 	virtual Variant instance_geometry_get_shader_parameter(RID p_instance, const StringName &p_parameter) const;
 	virtual Variant instance_geometry_get_shader_parameter_default_value(RID p_instance, const StringName &p_parameter) const;
@@ -1272,6 +1276,7 @@ public:
 
 	// Depth Fog
 	PASS4(environment_set_fog_depth, RID, float, float, float)
+	PASS4(environment_set_fog_height_integrated, RID, bool, float, float)
 	PASS1RC(float, environment_get_fog_depth_curve, RID)
 	PASS1RC(float, environment_get_fog_depth_begin, RID)
 	PASS1RC(float, environment_get_fog_depth_end, RID)
@@ -1352,6 +1357,8 @@ public:
 	// SDFGI
 
 	PASS11(environment_set_sdfgi, RID, bool, int, float, RSE::EnvironmentSDFGIYScale, bool, float, bool, float, float, float)
+	PASS3(environment_set_sdfgi_contact_refinement, RID, float, float)
+	PASS2(environment_set_sdfgi_world_space_irradiance, RID, bool)
 
 	PASS1RC(bool, environment_get_sdfgi_enabled, RID)
 	PASS1RC(int, environment_get_sdfgi_cascades, RID)

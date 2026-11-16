@@ -219,6 +219,8 @@ private:
 		SceneTree *tree = nullptr;
 
 		String editor_description;
+		Vector<NodePath> inspector_exposed_nodes;
+		Vector<NodePath> inspector_override_nodes;
 
 		Viewport *viewport = nullptr;
 
@@ -300,6 +302,8 @@ private:
 
 	String _get_tree_string_pretty(const String &p_prefix, bool p_last);
 	String _get_tree_string(const Node *p_node);
+	void _set_inspector_override_nodes(const TypedArray<NodePath> &p_paths);
+	TypedArray<NodePath> _get_inspector_override_nodes() const;
 
 	Node *_get_child_by_name(const StringName &p_name) const;
 
@@ -630,6 +634,11 @@ public:
 
 	void set_editor_description(const String &p_editor_description);
 	String get_editor_description() const;
+	void set_inspector_exposed_nodes(const TypedArray<NodePath> &p_paths);
+	TypedArray<NodePath> get_inspector_exposed_nodes() const;
+	void set_inspector_exposed_in_scene(bool p_exposed);
+	bool is_inspector_exposed_in_scene() const;
+	bool is_node_exposed_in_inspector(const Node *p_node, bool p_include_ancestors = false, bool p_include_retained = false) const;
 
 	void set_editable_instance(RequiredParam<Node> p_node, bool p_editable);
 	bool is_editable_instance(const Node *p_node) const;

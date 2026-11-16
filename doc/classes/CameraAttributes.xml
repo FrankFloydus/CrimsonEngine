@@ -12,6 +12,12 @@
 	<tutorials>
 	</tutorials>
 	<members>
+		<member name="auto_exposure_bright_scene_speed" type="float" setter="set_auto_exposure_bright_scene_speed" getter="get_auto_exposure_bright_scene_speed" default="1.0">
+			The maximum rate at which camera gain falls as the scene gets brighter, in exposure stops per second. Used when [member auto_exposure_use_ev_adaptation] is enabled. A value of [code]0.0[/code] holds the current gain in this direction.
+		</member>
+		<member name="auto_exposure_dark_scene_speed" type="float" setter="set_auto_exposure_dark_scene_speed" getter="get_auto_exposure_dark_scene_speed" default="2.0">
+			The maximum rate at which camera gain rises as the scene gets darker, in exposure stops per second. Used when [member auto_exposure_use_ev_adaptation] is enabled. A value of [code]0.0[/code] holds the current gain in this direction.
+		</member>
 		<member name="auto_exposure_enabled" type="bool" setter="set_auto_exposure_enabled" getter="is_auto_exposure_enabled" default="false">
 			If [code]true[/code], enables the tonemapping auto exposure mode of the scene renderer. If [code]true[/code], the renderer will automatically determine the exposure setting to adapt to the scene's illumination and the observed light.
 			[b]Note:[/b] Auto-exposure is only supported in the Forward+ rendering method, not Mobile or Compatibility.
@@ -20,7 +26,11 @@
 			The scale of the auto exposure effect. Affects the intensity of auto exposure.
 		</member>
 		<member name="auto_exposure_speed" type="float" setter="set_auto_exposure_speed" getter="get_auto_exposure_speed" default="0.5">
-			The speed of the auto exposure effect. Affects the time needed for the camera to perform auto exposure.
+			The speed of the auto exposure effect. Affects the time needed for the camera to perform auto exposure when [member auto_exposure_use_ev_adaptation] is disabled.
+		</member>
+		<member name="auto_exposure_use_ev_adaptation" type="bool" setter="set_auto_exposure_use_ev_adaptation" getter="is_auto_exposure_using_ev_adaptation" default="false">
+			If [code]true[/code], applies independent rates to exposure adaptation as the scene gets brighter or darker. The rates are measured in exposure stops per second, and the camera adapts to the current scene immediately when starting with fresh exposure history.
+			Requires [member auto_exposure_enabled] and Forward+.
 		</member>
 		<member name="exposure_multiplier" type="float" setter="set_exposure_multiplier" getter="get_exposure_multiplier" default="1.0">
 			Multiplier for the exposure amount. A higher value results in a brighter image.

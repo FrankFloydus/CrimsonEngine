@@ -31,6 +31,7 @@
 #pragma once
 
 #include "scene/3d/visual_instance_3d.h"
+#include "servers/rendering/rendering_server_enums.h"
 
 class Decal : public VisualInstance3D {
 	GDCLASS(Decal, VisualInstance3D);
@@ -44,12 +45,21 @@ public:
 		TEXTURE_MAX
 	};
 
+	enum ORMChannel {
+		ORM_CHANNEL_AO = RSE::DECAL_ORM_CHANNEL_AO,
+		ORM_CHANNEL_ROUGHNESS = RSE::DECAL_ORM_CHANNEL_ROUGHNESS,
+		ORM_CHANNEL_METALLIC = RSE::DECAL_ORM_CHANNEL_METALLIC,
+		ORM_CHANNEL_ALL = RSE::DECAL_ORM_CHANNEL_ALL,
+	};
+
 private:
 	RID decal;
 	Vector3 size = Vector3(2, 2, 2);
 	Ref<Texture2D> textures[TEXTURE_MAX];
 	real_t emission_energy = 1.0;
 	real_t albedo_mix = 1.0;
+	BitField<ORMChannel> orm_channels = ORM_CHANNEL_ALL;
+	bool roughness_affects_ssr = false;
 	Color modulate = Color(1, 1, 1, 1);
 	uint32_t cull_mask = (1 << 20) - 1;
 	real_t normal_fade = 0.0;
@@ -82,6 +92,12 @@ public:
 	void set_albedo_mix(real_t p_mix);
 	real_t get_albedo_mix() const;
 
+	void set_orm_channels(BitField<ORMChannel> p_channels);
+	BitField<ORMChannel> get_orm_channels() const;
+
+	void set_roughness_affects_ssr(bool p_enabled);
+	bool is_roughness_affecting_ssr() const;
+
 	void set_modulate(Color p_modulate);
 	Color get_modulate() const;
 
@@ -113,3 +129,4 @@ public:
 };
 
 VARIANT_ENUM_CAST(Decal::DecalTexture);
+VARIANT_BITFIELD_CAST(Decal::ORMChannel);

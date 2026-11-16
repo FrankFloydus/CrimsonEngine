@@ -404,6 +404,7 @@ private:
 				SKY_FLAGS_MODE_COLOR = 0x01,
 				SKY_FLAGS_MODE_SKY = 0x02,
 				SKY_FLAGS_ORIENTATION_SIGN = 0x04,
+				SKY_FLAGS_WORLD_SPACE_IRRADIANCE = 0x08,
 			};
 
 			float grid_size[3];
@@ -672,15 +673,19 @@ public:
 		bool uses_occlusion = false;
 		float bounce_feedback = 0.5;
 		bool reads_sky = true;
+		bool world_space_irradiance = false;
 		float energy = 1.0;
 		float normal_bias = 1.1;
 		float probe_bias = 1.1;
+		Vector2 contact_refinement;
 		RSE::EnvironmentSDFGIYScale y_scale_mode = RSE::ENV_SDFGI_Y_SCALE_75_PERCENT;
 
 		float y_mult = 1.0;
 
 		uint32_t version = 0;
 		uint32_t render_pass = 0;
+		RID scenario;
+		uint64_t geometry_revision = 0;
 
 		int32_t cascade_dynamic_light_count[SDFGI::MAX_CASCADES]; //used dynamically
 		RID integrate_sky_uniform_set;
@@ -691,6 +696,8 @@ public:
 
 		void create(RID p_env, const Vector3 &p_world_position, uint32_t p_requested_history_size, GI *p_gi);
 		void update(RID p_env, const Vector3 &p_world_position);
+		void apply_geometry_changes(const RendererSceneRender::SDFGIGeometryChanges &p_changes);
+		AABB get_cascade_bounds(const Cascade &p_cascade) const;
 		void update_light();
 		void update_probes(RID p_env, RendererRD::SkyRD::Sky *p_sky);
 		void store_probes();
@@ -738,10 +745,10 @@ public:
 		float y_mult;
 
 		float occlusion_clamp[3];
-		uint32_t pad3;
+		float contact_refinement_radius;
 
 		float occlusion_renormalize[3];
-		uint32_t pad4;
+		float contact_refinement_strength;
 
 		float cascade_probe_size[3];
 		uint32_t pad5;
@@ -817,7 +824,8 @@ public:
 		SHADER_SPECIALIZATION_HALF_RES = 1 << 0,
 		SHADER_SPECIALIZATION_USE_FULL_PROJECTION_MATRIX = 1 << 1,
 		SHADER_SPECIALIZATION_USE_VRS = 1 << 2,
-		SHADER_SPECIALIZATION_VARIATIONS = 8,
+		SHADER_SPECIALIZATION_CONTACT_REFINEMENT = 1 << 3,
+		SHADER_SPECIALIZATION_VARIATIONS = 16,
 	};
 
 	RID default_voxel_gi_buffer;

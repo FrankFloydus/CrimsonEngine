@@ -33,7 +33,9 @@ layout(push_constant, std430) uniform Params {
 	float max_luminance;
 	float min_luminance;
 	float exposure_adjust;
-	float pad[3];
+	float bright_scene_ev_step;
+	float dark_scene_ev_step;
+	uint set_immediate;
 }
 params;
 
@@ -41,6 +43,17 @@ void main() {
 	uint t = gl_LocalInvocationID.y * BLOCK_SIZE + gl_LocalInvocationID.x;
 	ivec2 pos = ivec2(gl_GlobalInvocationID.xy);
 
+#if defined(READ_TEXTURE) && defined(ADAPT_EXPOSURE_EV)
+	// A single workgroup owns the 1x1 output, including a partial source tile.
+	float total = 0.0;
+	for (int y = pos.y; y < params.source_size.y; y += BLOCK_SIZE) {
+		for (int x = pos.x; x < params.source_size.x; x += BLOCK_SIZE) {
+			vec3 v = texelFetch(source_texture, ivec2(x, y), 0).rgb;
+			total += max(v.r, max(v.g, v.b));
+		}
+	}
+	tmp_data[t] = total;
+#else
 	if (any(lessThan(pos, params.source_size))) {
 #ifdef READ_TEXTURE
 		vec3 v = texelFetch(source_texture, pos, 0).rgb;
@@ -51,6 +64,7 @@ void main() {
 	} else {
 		tmp_data[t] = 0.0;
 	}
+#endif
 
 	groupMemoryBarrier();
 	barrier();
@@ -69,13 +83,28 @@ void main() {
 
 	if (t == 0) {
 		//compute rect size
+#if defined(READ_TEXTURE) && defined(ADAPT_EXPOSURE_EV)
+		ivec2 rect_size = params.source_size;
+#else
 		ivec2 rect_size = min(params.source_size - pos, ivec2(BLOCK_SIZE));
+#endif
 		float avg = tmp_data[0] / float(rect_size.x * rect_size.y);
 		//float avg = tmp_data[0] / float(BLOCK_SIZE*BLOCK_SIZE);
 		pos /= ivec2(BLOCK_SIZE);
 #ifdef WRITE_LUMINANCE
 		float prev_lum = texelFetch(prev_luminance, ivec2(0, 0), 0).r; //1 pixel previous exposure
+#ifdef ADAPT_EXPOSURE_EV
+		float target = clamp(isnan(avg) ? params.min_luminance : avg, params.min_luminance, params.max_luminance);
+		if (params.set_immediate != 0u || !(prev_lum > 0.0) || isinf(prev_lum)) {
+			avg = target;
+		} else {
+			float previous_ev = log2(clamp(prev_lum, params.min_luminance, params.max_luminance));
+			float ev_delta = clamp(log2(target) - previous_ev, -params.dark_scene_ev_step, params.bright_scene_ev_step);
+			avg = clamp(exp2(previous_ev + ev_delta), params.min_luminance, params.max_luminance);
+		}
+#else
 		avg = clamp(prev_lum + (avg - prev_lum) * params.exposure_adjust, params.min_luminance, params.max_luminance);
+#endif
 #endif
 		imageStore(dest_luminance, pos, vec4(avg));
 	}

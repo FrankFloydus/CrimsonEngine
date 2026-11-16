@@ -160,6 +160,9 @@ private:
 	float sdfgi_energy = 1.0;
 	float sdfgi_normal_bias = 1.1;
 	float sdfgi_probe_bias = 1.1;
+	float sdfgi_contact_refinement_radius = 0.0;
+	float sdfgi_contact_refinement_strength = 1.0;
+	bool sdfgi_world_space_irradiance = false;
 	void _update_sdfgi();
 
 	// Glow
@@ -187,10 +190,14 @@ private:
 	float fog_density = 0.01;
 	float fog_height = 0.0;
 	float fog_height_density = 0.0; //can be negative to invert effect
+	bool fog_height_integrated = false;
+	float fog_height_falloff = 0.01;
+	float fog_start_distance = 0.0;
 	float fog_aerial_perspective = 0.0;
 	float fog_sky_affect = 1.0;
 
 	void _update_fog();
+	void _update_fog_height_integrated();
 
 	// Depth Fog
 	float fog_depth_curve = 1.0;
@@ -348,6 +355,12 @@ public:
 	float get_sdfgi_normal_bias() const;
 	void set_sdfgi_probe_bias(float p_bias);
 	float get_sdfgi_probe_bias() const;
+	void set_sdfgi_contact_refinement_radius(float p_radius);
+	float get_sdfgi_contact_refinement_radius() const;
+	void set_sdfgi_contact_refinement_strength(float p_strength);
+	float get_sdfgi_contact_refinement_strength() const;
+	void set_sdfgi_world_space_irradiance(bool p_enabled);
+	bool is_sdfgi_world_space_irradiance() const;
 
 	// Glow
 	void set_glow_enabled(bool p_enabled);
@@ -396,6 +409,12 @@ public:
 	float get_fog_height() const;
 	void set_fog_height_density(float p_amount);
 	float get_fog_height_density() const;
+	void set_fog_height_integrated(bool p_enabled);
+	bool is_fog_height_integrated() const;
+	void set_fog_height_falloff(float p_falloff);
+	float get_fog_height_falloff() const;
+	void set_fog_start_distance(float p_distance);
+	float get_fog_start_distance() const;
 	void set_fog_aerial_perspective(float p_aerial_perspective);
 	float get_fog_aerial_perspective() const;
 	void set_fog_sky_affect(float p_sky_affect);

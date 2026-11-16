@@ -30,6 +30,8 @@
 
 #include "camera_attributes_storage.h"
 
+#include "core/math/math_funcs.h"
+
 #ifdef DEBUG_ENABLED
 #include "core/os/os.h"
 #endif
@@ -157,6 +159,27 @@ void RendererCameraAttributes::camera_attributes_set_auto_exposure(RID p_camera_
 	cam_attributes->auto_exposure_max_sensitivity = p_max_sensitivity;
 	cam_attributes->auto_exposure_adjust_speed = p_speed;
 	cam_attributes->auto_exposure_scale = p_scale;
+}
+
+void RendererCameraAttributes::camera_attributes_set_auto_exposure_ev_adaptation(RID p_camera_attributes, bool p_enable, float p_bright_scene_speed, float p_dark_scene_speed) {
+	CameraAttributes *cam_attributes = camera_attributes_owner.get_or_null(p_camera_attributes);
+	ERR_FAIL_NULL(cam_attributes);
+	ERR_FAIL_COND(!Math::is_finite(p_bright_scene_speed) || p_bright_scene_speed < 0.0f);
+	ERR_FAIL_COND(!Math::is_finite(p_dark_scene_speed) || p_dark_scene_speed < 0.0f);
+	cam_attributes->auto_exposure_use_ev_adaptation = p_enable;
+	cam_attributes->auto_exposure_bright_scene_speed = p_bright_scene_speed;
+	cam_attributes->auto_exposure_dark_scene_speed = p_dark_scene_speed;
+}
+
+bool RendererCameraAttributes::camera_attributes_get_auto_exposure_ev_adaptation(RID p_camera_attributes, float &r_bright_scene_speed, float &r_dark_scene_speed) {
+	CameraAttributes *cam_attributes = camera_attributes_owner.get_or_null(p_camera_attributes);
+	ERR_FAIL_NULL_V(cam_attributes, false);
+	if (!cam_attributes->auto_exposure_use_ev_adaptation) {
+		return false;
+	}
+	r_bright_scene_speed = cam_attributes->auto_exposure_bright_scene_speed;
+	r_dark_scene_speed = cam_attributes->auto_exposure_dark_scene_speed;
+	return true;
 }
 
 float RendererCameraAttributes::camera_attributes_get_auto_exposure_min_sensitivity(RID p_camera_attributes) {

@@ -35,6 +35,7 @@ TEST_FORCE_LINK(test_decal)
 #ifndef _3D_DISABLED
 
 #include "scene/3d/decal.h"
+#include "scene/resources/packed_scene.h"
 
 namespace TestDecal {
 
@@ -131,6 +132,66 @@ TEST_CASE("[SceneTree][Decal] Getters/Setters") {
 	}
 
 	memdelete(decal);
+}
+
+TEST_CASE("[SceneTree][Decal] ORM channels persist in a packed scene") {
+	Decal *decal = memnew(Decal);
+	decal->set_name("ORMDecal");
+	CHECK(uint32_t(decal->get_orm_channels()) == Decal::ORM_CHANNEL_ALL);
+
+	decal->set_orm_channels(0);
+	CHECK(decal->get_orm_channels().is_empty());
+
+	// Exercise the bound property used by the Inspector and scene serialization.
+	bool property_valid = false;
+	decal->set("orm_channels", Decal::ORM_CHANNEL_ROUGHNESS, &property_valid);
+	CHECK(property_valid);
+	CHECK(uint32_t(decal->get_orm_channels()) == Decal::ORM_CHANNEL_ROUGHNESS);
+
+	PackedScene scene;
+	const Error error = scene.pack(decal);
+	memdelete(decal);
+	REQUIRE(error == OK);
+
+	Node *instance = scene.instantiate();
+	Decal *copy = Object::cast_to<Decal>(instance);
+	CHECK(copy != nullptr);
+	if (copy) {
+		CHECK(uint32_t(copy->get_orm_channels()) == Decal::ORM_CHANNEL_ROUGHNESS);
+		copy->set_orm_channels(Decal::ORM_CHANNEL_ROUGHNESS | (1 << 10));
+		CHECK(uint32_t(copy->get_orm_channels()) == Decal::ORM_CHANNEL_ROUGHNESS);
+	}
+	if (instance) {
+		memdelete(instance);
+	}
+}
+
+TEST_CASE("[SceneTree][Decal] Screen-space reflection roughness is opt-in") {
+	Decal *decal = memnew(Decal);
+	decal->set_name("SSRDecal");
+	CHECK_FALSE(decal->is_roughness_affecting_ssr());
+
+	bool property_valid = false;
+	decal->set("roughness_affects_ssr", true, &property_valid);
+	CHECK(property_valid);
+	CHECK(decal->is_roughness_affecting_ssr());
+
+	PackedScene scene;
+	const Error error = scene.pack(decal);
+	memdelete(decal);
+	REQUIRE(error == OK);
+
+	Node *instance = scene.instantiate();
+	Decal *copy = Object::cast_to<Decal>(instance);
+	CHECK(copy != nullptr);
+	if (copy) {
+		CHECK(copy->is_roughness_affecting_ssr());
+		copy->set_roughness_affects_ssr(false);
+		CHECK_FALSE(copy->is_roughness_affecting_ssr());
+	}
+	if (instance) {
+		memdelete(instance);
+	}
 }
 
 } // namespace TestDecal

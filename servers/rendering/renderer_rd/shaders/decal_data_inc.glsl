@@ -1,6 +1,12 @@
+#define DECAL_ORM_CHANNEL_AO (1u << 0)
+#define DECAL_ORM_CHANNEL_ROUGHNESS (1u << 1)
+#define DECAL_ORM_CHANNEL_METALLIC (1u << 2)
+
 struct DecalData {
 	mat4 xform; //to decal transform
-	vec3 inv_extents;
+	uint orm_channels;
+	uint roughness_affects_ssr;
+	uint pad;
 	float albedo_mix;
 	vec4 albedo_rect;
 	vec4 normal_rect;

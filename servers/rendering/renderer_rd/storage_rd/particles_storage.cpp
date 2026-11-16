@@ -260,6 +260,9 @@ void ParticlesStorage::particles_set_emitting(RID p_particles, bool p_emitting) 
 	Particles *particles = particles_owner.get_or_null(p_particles);
 	ERR_FAIL_NULL(particles);
 
+	if (p_emitting) {
+		_particles_clear_gpu_emission(particles);
+	}
 	particles->emitting = p_emitting;
 }
 
@@ -309,9 +312,14 @@ void ParticlesStorage::_particles_free_data(Particles *particles) {
 	if (particles->emission_buffer != nullptr) {
 		particles->emission_buffer = nullptr;
 		particles->emission_buffer_data.clear();
-		RD::get_singleton()->free_rid(particles->emission_storage_buffer);
-		particles->emission_storage_buffer = RID();
+		RD::get_singleton()->free_rid(particles->cpu_emission_storage_buffer);
+		particles->cpu_emission_storage_buffer = RID();
 	}
+	if (particles->gpu_emission_storage_buffer.is_valid()) {
+		RD::get_singleton()->free_rid(particles->gpu_emission_storage_buffer);
+		particles->gpu_emission_storage_buffer = RID();
+	}
+	particles->gpu_emission_pending = false;
 
 	if (particles->unused_emission_storage_buffer.is_valid()) {
 		RD::get_singleton()->free_rid(particles->unused_emission_storage_buffer);
@@ -548,6 +556,7 @@ void ParticlesStorage::particles_restart(RID p_particles) {
 	Particles *particles = particles_owner.get_or_null(p_particles);
 	ERR_FAIL_NULL(particles);
 
+	_particles_clear_gpu_emission(particles);
 	particles->restart_request = true;
 }
 
@@ -557,20 +566,38 @@ void ParticlesStorage::particles_set_seed(RID p_particles, uint32_t p_seed) {
 	particles->random_seed = p_seed;
 }
 
-void ParticlesStorage::_particles_allocate_emission_buffer(Particles *particles) {
-	ERR_FAIL_COND(particles->emission_buffer != nullptr);
+void ParticlesStorage::_particles_allocate_cpu_emission_buffer(Particles *p_particles) {
+	ERR_FAIL_COND(p_particles->emission_buffer != nullptr);
 
-	particles->emission_buffer_data.resize(sizeof(ParticleEmissionBuffer::Data) * particles->amount + sizeof(uint32_t) * 4);
-	memset(particles->emission_buffer_data.ptrw(), 0, particles->emission_buffer_data.size());
-	particles->emission_buffer = reinterpret_cast<ParticleEmissionBuffer *>(particles->emission_buffer_data.ptrw());
-	particles->emission_buffer->particle_max = particles->amount;
+	const uint32_t buffer_size = sizeof(ParticleEmissionBuffer::Data) * p_particles->amount + sizeof(uint32_t) * 4;
+	p_particles->emission_buffer_data.resize_initialized(buffer_size);
+	p_particles->emission_buffer = reinterpret_cast<ParticleEmissionBuffer *>(p_particles->emission_buffer_data.ptrw());
+	p_particles->emission_buffer->particle_max = p_particles->amount;
+	p_particles->cpu_emission_storage_buffer = RD::get_singleton()->storage_buffer_create(buffer_size);
+	if (RD::get_singleton()->uniform_set_is_valid(p_particles->particles_material_uniform_set)) {
+		RD::get_singleton()->free_rid(p_particles->particles_material_uniform_set);
+	}
+	p_particles->particles_material_uniform_set = RID();
+}
 
-	particles->emission_storage_buffer = RD::get_singleton()->storage_buffer_create(particles->emission_buffer_data.size(), particles->emission_buffer_data);
+void ParticlesStorage::_particles_allocate_gpu_emission_buffer(Particles *p_particles) {
+	ERR_FAIL_COND(p_particles->gpu_emission_storage_buffer.is_valid());
 
-	if (RD::get_singleton()->uniform_set_is_valid(particles->particles_material_uniform_set)) {
-		//will need to be re-created
-		RD::get_singleton()->free_rid(particles->particles_material_uniform_set);
-		particles->particles_material_uniform_set = RID();
+	const uint32_t buffer_size = sizeof(ParticleEmissionBuffer::Data) * p_particles->amount + sizeof(uint32_t) * 4;
+	p_particles->gpu_emission_storage_buffer = RD::get_singleton()->storage_buffer_create(buffer_size);
+	const int32_t header[4] = { 0, p_particles->amount, 0, 0 };
+	RD::get_singleton()->buffer_update(p_particles->gpu_emission_storage_buffer, 0, sizeof(header), header);
+	if (RD::get_singleton()->uniform_set_is_valid(p_particles->particles_material_uniform_set)) {
+		RD::get_singleton()->free_rid(p_particles->particles_material_uniform_set);
+	}
+	p_particles->particles_material_uniform_set = RID();
+}
+
+void ParticlesStorage::_particles_clear_gpu_emission(Particles *p_particles) {
+	if (p_particles->gpu_emission_pending) {
+		// Leave the queue capacity intact.
+		RD::get_singleton()->buffer_clear(p_particles->gpu_emission_storage_buffer, 0, sizeof(int32_t));
+		p_particles->gpu_emission_pending = false;
 	}
 }
 
@@ -612,7 +639,7 @@ void ParticlesStorage::particles_emit(RID p_particles, const Transform3D &p_tran
 	}
 
 	if (particles->emission_buffer == nullptr) {
-		_particles_allocate_emission_buffer(particles);
+		_particles_allocate_cpu_emission_buffer(particles);
 	}
 
 	particles->inactive = false;
@@ -809,8 +836,8 @@ void ParticlesStorage::_particles_process(Particles *p_particles, double p_delta
 			RD::Uniform u;
 			u.uniform_type = RD::UNIFORM_TYPE_STORAGE_BUFFER;
 			u.binding = 2;
-			if (p_particles->emission_storage_buffer.is_valid()) {
-				u.append_id(p_particles->emission_storage_buffer);
+			if (p_particles->gpu_emission_storage_buffer.is_valid()) {
+				u.append_id(p_particles->gpu_emission_storage_buffer);
 			} else {
 				_particles_ensure_unused_emission_buffer(p_particles);
 				u.append_id(p_particles->unused_emission_storage_buffer);
@@ -823,10 +850,22 @@ void ParticlesStorage::_particles_process(Particles *p_particles, double p_delta
 			u.binding = 3;
 			Particles *sub_emitter = particles_owner.get_or_null(p_particles->sub_emitter);
 			if (sub_emitter) {
-				if (sub_emitter->emission_buffer == nullptr) { //no emission buffer, allocate emission buffer
-					_particles_allocate_emission_buffer(sub_emitter);
+				if (sub_emitter->gpu_emission_storage_buffer.is_null()) {
+					_particles_allocate_gpu_emission_buffer(sub_emitter);
 				}
-				u.append_id(sub_emitter->emission_storage_buffer);
+				u.append_id(sub_emitter->gpu_emission_storage_buffer);
+			} else {
+				_particles_ensure_unused_emission_buffer(p_particles);
+				u.append_id(p_particles->unused_emission_storage_buffer);
+			}
+			uniforms.push_back(u);
+		}
+		{
+			RD::Uniform u;
+			u.uniform_type = RD::UNIFORM_TYPE_STORAGE_BUFFER;
+			u.binding = 4;
+			if (p_particles->cpu_emission_storage_buffer.is_valid()) {
+				u.append_id(p_particles->cpu_emission_storage_buffer);
 			} else {
 				_particles_ensure_unused_emission_buffer(p_particles);
 				u.append_id(p_particles->unused_emission_storage_buffer);
@@ -1144,17 +1183,21 @@ void ParticlesStorage::_particles_process(Particles *p_particles, double p_delta
 	push_constant.lifetime = p_particles->lifetime;
 	push_constant.trail_size = p_particles->trail_params.size();
 	push_constant.use_fractional_delta = p_particles->fractional_delta;
-	push_constant.sub_emitter_mode = !p_particles->emitting && p_particles->emission_buffer && (p_particles->emission_buffer->particle_count > 0 || p_particles->force_sub_emit);
+	const bool has_cpu_emission = p_particles->emission_buffer && p_particles->emission_buffer->particle_count > 0;
+	const bool consume_cpu_emission = !p_particles->emitting && has_cpu_emission;
+	const bool consume_gpu_emission = !p_particles->emitting && p_particles->gpu_emission_pending;
+	push_constant.emission_sources = 0;
+	if (consume_cpu_emission) {
+		push_constant.emission_sources |= ParticlesShader::PushConstant::EMISSION_SOURCE_CPU;
+	}
+	if (consume_gpu_emission) {
+		push_constant.emission_sources |= ParticlesShader::PushConstant::EMISSION_SOURCE_GPU;
+	}
 	push_constant.trail_pass = false;
-
-	p_particles->force_sub_emit = false; //reset
 
 	Particles *sub_emitter = particles_owner.get_or_null(p_particles->sub_emitter);
 
-	if (sub_emitter && sub_emitter->emission_storage_buffer.is_valid()) {
-		//	print_line("updating subemitter buffer");
-		int32_t zero[4] = { 0, sub_emitter->amount, 0, 0 };
-		RD::get_singleton()->buffer_update(sub_emitter->emission_storage_buffer, 0, sizeof(uint32_t) * 4, zero);
+	if (sub_emitter && sub_emitter->gpu_emission_storage_buffer.is_valid()) {
 		push_constant.can_emit = true;
 
 		if (sub_emitter->emitting) {
@@ -1165,14 +1208,17 @@ void ParticlesStorage::_particles_process(Particles *p_particles, double p_delta
 		sub_emitter->inactive = false;
 		sub_emitter->inactive_time = 0;
 
-		sub_emitter->force_sub_emit = true;
+		sub_emitter->gpu_emission_pending = true;
 
 	} else {
 		push_constant.can_emit = false;
 	}
 
-	if (p_particles->emission_buffer && p_particles->emission_buffer->particle_count) {
-		RD::get_singleton()->buffer_update(p_particles->emission_storage_buffer, 0, sizeof(uint32_t) * 4 + sizeof(ParticleEmissionBuffer::Data) * p_particles->emission_buffer->particle_count, p_particles->emission_buffer);
+	if (has_cpu_emission) {
+		if (consume_cpu_emission) {
+			const uint32_t upload_size = sizeof(uint32_t) * 4 + sizeof(ParticleEmissionBuffer::Data) * p_particles->emission_buffer->particle_count;
+			RD::get_singleton()->buffer_update(p_particles->cpu_emission_storage_buffer, 0, upload_size, p_particles->emission_buffer);
+		}
 		p_particles->emission_buffer->particle_count = 0;
 	}
 
@@ -1231,6 +1277,11 @@ void ParticlesStorage::_particles_process(Particles *p_particles, double p_delta
 	}
 
 	RD::get_singleton()->compute_list_end();
+
+	if (consume_gpu_emission) {
+		// Producers and their fixed substeps append until an actual receiver dispatch.
+		_particles_clear_gpu_emission(p_particles);
+	}
 }
 
 void ParticlesStorage::particles_set_view_axis(RID p_particles, const Vector3 &p_axis, const Vector3 &p_up_axis) {

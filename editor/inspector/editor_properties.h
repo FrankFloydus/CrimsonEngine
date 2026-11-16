@@ -747,6 +747,8 @@ class EditorPropertyResource : public EditorProperty {
 
 	bool use_sub_inspector = false;
 	EditorInspector *sub_inspector = nullptr;
+	VBoxContainer *sub_inspector_container = nullptr;
+	Button *make_editable_button = nullptr;
 	bool opened_editor = false;
 	bool use_filter = false;
 	bool user_opened_editor = false;
@@ -755,6 +757,8 @@ class EditorPropertyResource : public EditorProperty {
 	void _resource_expand_requested(const Ref<Resource> &p_resource, bool p_inspect);
 	void _select_resource(const Ref<Resource> &p_resource, bool p_inspect, bool p_force_open);
 	void _resource_changed(const Ref<Resource> &p_resource);
+	bool _can_make_exposed_resource_editable(const Ref<Resource> &p_resource);
+	void _make_exposed_resource_editable();
 
 	Node *_get_base_node();
 	void _viewport_selected(const NodePath &p_path);

@@ -48,6 +48,9 @@ private:
 		float auto_exposure_adjust_speed = 1.0;
 		float auto_exposure_scale = 1.0;
 		uint64_t auto_exposure_version = 0;
+		bool auto_exposure_use_ev_adaptation = false;
+		float auto_exposure_bright_scene_speed = 1.0f;
+		float auto_exposure_dark_scene_speed = 2.0f;
 
 		bool dof_blur_far_enabled = false;
 		float dof_blur_far_distance = 10;
@@ -105,6 +108,8 @@ public:
 	float camera_attributes_get_auto_exposure_adjust_speed(RID p_camera_attributes);
 	float camera_attributes_get_auto_exposure_scale(RID p_camera_attributes);
 	uint64_t camera_attributes_get_auto_exposure_version(RID p_camera_attributes);
+	void camera_attributes_set_auto_exposure_ev_adaptation(RID p_camera_attributes, bool p_enable, float p_bright_scene_speed, float p_dark_scene_speed);
+	bool camera_attributes_get_auto_exposure_ev_adaptation(RID p_camera_attributes, float &r_bright_scene_speed, float &r_dark_scene_speed);
 
 	_FORCE_INLINE_ bool camera_attributes_uses_auto_exposure(RID p_camera_attributes) {
 		CameraAttributes *cam_attributes = camera_attributes_owner.get_or_null(p_camera_attributes);

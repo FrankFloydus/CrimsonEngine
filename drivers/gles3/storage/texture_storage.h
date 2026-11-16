@@ -354,6 +354,7 @@ struct Decal {
 	RID textures[RSE::DECAL_TEXTURE_MAX];
 	float emission_energy = 1.0;
 	float albedo_mix = 1.0;
+	uint32_t orm_channels = RSE::DECAL_ORM_CHANNEL_ALL;
 	Color modulate = Color(1, 1, 1, 1);
 	uint32_t cull_mask = (1 << 20) - 1;
 	float upper_fade = 0.3;
@@ -378,7 +379,8 @@ struct DecalInstance {
 
 struct DecalData {
 	float xform[16];
-	float inv_extents[3];
+	uint32_t orm_channels;
+	uint32_t padding[2] = {};
 	float albedo_mix;
 	float albedo_rect[4];
 	float normal_rect[4];
@@ -768,6 +770,8 @@ public:
 	virtual void decal_set_texture(RID p_decal, RSE::DecalTexture p_type, RID p_texture) override;
 	virtual void decal_set_emission_energy(RID p_decal, float p_energy) override;
 	virtual void decal_set_albedo_mix(RID p_decal, float p_mix) override;
+	virtual void decal_set_orm_channels(RID p_decal, BitField<RSE::DecalORMChannel> p_channels) override;
+	virtual void decal_set_roughness_affects_ssr(RID p_decal, bool p_enabled) override {}
 	virtual void decal_set_modulate(RID p_decal, const Color &p_modulate) override;
 	virtual void decal_set_cull_mask(RID p_decal, uint32_t p_layers) override;
 	virtual void decal_set_distance_fade(RID p_decal, bool p_enabled, float p_begin, float p_length) override;

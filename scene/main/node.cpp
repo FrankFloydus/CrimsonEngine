@@ -2686,6 +2686,113 @@ String Node::get_editor_description() const {
 	return data.editor_description;
 }
 
+void Node::set_inspector_exposed_nodes(const TypedArray<NodePath> &p_paths) {
+	ERR_THREAD_GUARD
+	Vector<NodePath> paths;
+	for (int i = 0; i < p_paths.size(); i++) {
+		paths.push_back(p_paths[i]);
+	}
+	if (data.inspector_exposed_nodes == paths) {
+		return;
+	}
+	data.inspector_exposed_nodes = paths;
+	// Exposure controls presentation. Removing an entry must not discard authored overrides.
+	for (int i = 0; i < p_paths.size(); i++) {
+		const NodePath path = p_paths[i];
+		if (!data.inspector_override_nodes.has(path)) {
+			data.inspector_override_nodes.push_back(path);
+		}
+	}
+	notify_property_list_changed();
+	update_configuration_warnings();
+	_emit_editor_state_changed();
+}
+
+TypedArray<NodePath> Node::get_inspector_exposed_nodes() const {
+	TypedArray<NodePath> paths;
+	for (const NodePath &path : data.inspector_exposed_nodes) {
+		paths.push_back(path);
+	}
+	return paths;
+}
+
+void Node::set_inspector_exposed_in_scene(bool p_exposed) {
+	ERR_THREAD_GUARD
+	Node *scene_root = get_owner();
+	if (!scene_root || is_inspector_exposed_in_scene() == p_exposed) {
+		return;
+	}
+	TypedArray<NodePath> paths;
+	for (const NodePath &path : scene_root->data.inspector_exposed_nodes) {
+		if (p_exposed || scene_root->get_node_or_null(path) != this) {
+			paths.push_back(path);
+		}
+	}
+	if (p_exposed) {
+		paths.push_back(scene_root->get_path_to(this));
+	}
+	scene_root->set_inspector_exposed_nodes(paths);
+	notify_property_list_changed();
+}
+
+bool Node::is_inspector_exposed_in_scene() const {
+	const Node *scene_root = get_owner();
+	if (!scene_root) {
+		return false;
+	}
+	for (const NodePath &path : scene_root->data.inspector_exposed_nodes) {
+		if (!path.is_empty() && !path.is_absolute() && path.get_subname_count() == 0 && scene_root->get_node_or_null(path) == this) {
+			return true;
+		}
+	}
+	return false;
+}
+
+void Node::_set_inspector_override_nodes(const TypedArray<NodePath> &p_paths) {
+	ERR_THREAD_GUARD
+	data.inspector_override_nodes.clear();
+	for (int i = 0; i < p_paths.size(); i++) {
+		data.inspector_override_nodes.push_back(p_paths[i]);
+	}
+	for (int i = 0; i < data.inspector_exposed_nodes.size(); i++) {
+		const NodePath path = data.inspector_exposed_nodes[i];
+		if (!data.inspector_override_nodes.has(path)) {
+			data.inspector_override_nodes.push_back(path);
+		}
+	}
+}
+
+TypedArray<NodePath> Node::_get_inspector_override_nodes() const {
+	TypedArray<NodePath> paths;
+	for (const NodePath &path : data.inspector_override_nodes) {
+		paths.push_back(path);
+	}
+	return paths;
+}
+
+bool Node::is_node_exposed_in_inspector(const Node *p_node, bool p_include_ancestors, bool p_include_retained) const {
+	if (!p_node || !is_ancestor_of(p_node)) {
+		return false;
+	}
+	for (const Node *source = p_node->get_parent(); source; source = source->get_parent()) {
+		const Vector<NodePath> &paths = p_include_retained ? source->data.inspector_override_nodes : source->data.inspector_exposed_nodes;
+		for (int i = 0; i < paths.size(); i++) {
+			const NodePath path = paths[i];
+			if (path.is_empty() || path.is_absolute() || path.get_subname_count() != 0) {
+				continue;
+			}
+			const Node *target = source->get_node_or_null(path);
+			if (target && source->is_ancestor_of(target) && (target == p_node || (p_include_ancestors && p_node->is_ancestor_of(target)))) {
+				return true;
+			}
+		}
+		if (source == this) {
+			break;
+		}
+	}
+	return false;
+}
+
 void Node::set_editable_instance(RequiredParam<Node> p_node, bool p_editable) {
 	ERR_THREAD_GUARD
 	EXTRACT_PARAM_OR_FAIL(node, p_node);
@@ -3564,6 +3671,15 @@ PackedStringArray Node::get_accessibility_configuration_warnings() const {
 PackedStringArray Node::get_configuration_warnings() const {
 	ERR_THREAD_GUARD_V(PackedStringArray());
 	PackedStringArray ret;
+	HashSet<NodePath> warned_paths;
+	for (int i = 0; i < data.inspector_exposed_nodes.size(); i++) {
+		const NodePath path = data.inspector_exposed_nodes[i];
+		const Node *target = !path.is_empty() && !path.is_absolute() && path.get_subname_count() == 0 ? get_node_or_null(path) : nullptr;
+		if ((!target || !is_ancestor_of(target)) && !warned_paths.has(path)) {
+			ret.push_back(vformat(RTR("Inspector exposed node path '%s' must resolve to a descendant of this node."), path));
+			warned_paths.insert(path);
+		}
+	}
 
 	Vector<String> warnings;
 	if (GDVIRTUAL_CALL(_get_configuration_warnings, warnings)) {
@@ -3644,6 +3760,9 @@ void Node::_call_unhandled_key_input(const Ref<InputEvent> &p_event) {
 }
 
 void Node::_validate_property(PropertyInfo &p_property) const {
+	if (p_property.name == "inspector_exposed_in_scene" && !get_owner()) {
+		p_property.usage = PROPERTY_USAGE_NONE;
+	}
 	if ((p_property.name == "process_thread_group_order" || p_property.name == "process_thread_messages") && data.process_thread_group == PROCESS_THREAD_GROUP_INHERIT) {
 		p_property.usage = PROPERTY_USAGE_NONE;
 	}
@@ -3927,6 +4046,12 @@ void Node::_bind_methods() {
 
 	ClassDB::bind_method(D_METHOD("set_editor_description", "editor_description"), &Node::set_editor_description);
 	ClassDB::bind_method(D_METHOD("get_editor_description"), &Node::get_editor_description);
+	ClassDB::bind_method(D_METHOD("set_inspector_exposed_nodes", "paths"), &Node::set_inspector_exposed_nodes);
+	ClassDB::bind_method(D_METHOD("get_inspector_exposed_nodes"), &Node::get_inspector_exposed_nodes);
+	ClassDB::bind_method(D_METHOD("set_inspector_exposed_in_scene", "exposed"), &Node::set_inspector_exposed_in_scene);
+	ClassDB::bind_method(D_METHOD("is_inspector_exposed_in_scene"), &Node::is_inspector_exposed_in_scene);
+	ClassDB::bind_method(D_METHOD("_set_inspector_override_nodes", "paths"), &Node::_set_inspector_override_nodes);
+	ClassDB::bind_method(D_METHOD("_get_inspector_override_nodes"), &Node::_get_inspector_override_nodes);
 
 	ClassDB::bind_method(D_METHOD("set_unique_name_in_owner", "enable"), &Node::set_unique_name_in_owner);
 	ClassDB::bind_method(D_METHOD("is_unique_name_in_owner"), &Node::is_unique_name_in_owner);
@@ -4102,6 +4227,11 @@ void Node::_bind_methods() {
 
 	ADD_GROUP("Editor Description", "editor_");
 	ADD_PROPERTY(PropertyInfo(Variant::STRING, "editor_description", PROPERTY_HINT_MULTILINE_TEXT), "set_editor_description", "get_editor_description");
+	ADD_GROUP("Inspector", "inspector_");
+	ADD_PROPERTY(PropertyInfo(Variant::BOOL, "inspector_exposed_in_scene", PROPERTY_HINT_NONE, "", PROPERTY_USAGE_EDITOR), "set_inspector_exposed_in_scene", "is_inspector_exposed_in_scene");
+	ADD_SUBGROUP("Advanced", "inspector_");
+	ADD_PROPERTY(PropertyInfo(Variant::ARRAY, "inspector_exposed_nodes", PROPERTY_HINT_ARRAY_TYPE, "NodePath"), "set_inspector_exposed_nodes", "get_inspector_exposed_nodes");
+	ADD_PROPERTY(PropertyInfo(Variant::ARRAY, "_inspector_override_nodes", PROPERTY_HINT_ARRAY_TYPE, "NodePath", PROPERTY_USAGE_STORAGE | PROPERTY_USAGE_INTERNAL), "_set_inspector_override_nodes", "_get_inspector_override_nodes");
 
 	GDVIRTUAL_BIND(_process, "delta");
 	GDVIRTUAL_BIND(_physics_process, "delta");

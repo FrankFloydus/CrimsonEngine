@@ -802,6 +802,7 @@ private:
 	// Map used to cache the instantiated editors.
 	HashMap<StringName, List<EditorProperty *>> editor_property_map;
 	List<EditorInspectorSection *> sections;
+	LocalVector<EditorInspector *> exposed_node_inspectors;
 	HashSet<StringName> pending;
 
 	void _clear(bool p_hide_plugins = true);
@@ -870,6 +871,8 @@ private:
 	bool _resource_properties_matches(const Ref<Resource> &p_resource, const String &p_filter);
 
 	void _resource_selected(const String &p_path, Ref<Resource> p_resource);
+	void _resource_selected_from_object(const String &p_path, Ref<Resource> p_resource, ObjectID p_source);
+	void _exposed_node_object_id_selected(ObjectID p_id);
 	void _property_selected(const String &p_path, int p_focusable);
 	void _object_id_selected(const String &p_path, ObjectID p_id);
 
@@ -911,6 +914,7 @@ private:
 
 	void _handle_menu_option(int p_option);
 	void _add_section_in_tree(EditorInspectorSection *p_section, VBoxContainer *p_current_vbox);
+	void _add_exposed_node_inspectors(Node *p_node, bool p_read_only);
 	static EditorInspector *_get_control_parent_inspector(Control *p_control);
 
 protected:

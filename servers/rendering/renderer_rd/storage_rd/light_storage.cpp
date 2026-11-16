@@ -164,6 +164,7 @@ void LightStorage::_light_initialize(RID p_light, RSE::LightType p_type) {
 	light.param[RSE::LIGHT_PARAM_TRANSMITTANCE_BIAS] = 0.05;
 	light.param[RSE::LIGHT_PARAM_INTENSITY] = p_type == RSE::LIGHT_DIRECTIONAL ? 100000.0 : 1000.0;
 	light.param[RSE::LIGHT_PARAM_CONTACT_SHADOW_BLUR] = 1.0;
+	light.param[RSE::LIGHT_PARAM_DIRECTIONAL_PROJECTOR_SIZE] = 0.0;
 
 	light_owner.initialize_rid(p_light, light);
 }
@@ -272,16 +273,17 @@ void LightStorage::light_set_projector(RID p_light, RID p_texture) {
 
 	ERR_FAIL_COND(p_texture.is_valid() && !texture_storage->owns_texture(p_texture));
 
-	if (light->type != RSE::LIGHT_DIRECTIONAL && light->projector.is_valid()) {
+	const bool uses_projector_atlas = light->type != RSE::LIGHT_DIRECTIONAL || OS::get_singleton()->get_current_rendering_method() == "forward_plus";
+	if (uses_projector_atlas && light->projector.is_valid()) {
 		texture_storage->texture_remove_from_decal_atlas(light->projector, light->type == RSE::LIGHT_OMNI);
 	}
 
 	light->projector = p_texture;
 
+	if (uses_projector_atlas && light->projector.is_valid()) {
+		texture_storage->texture_add_to_decal_atlas(light->projector, light->type == RSE::LIGHT_OMNI);
+	}
 	if (light->type != RSE::LIGHT_DIRECTIONAL) {
-		if (light->projector.is_valid()) {
-			texture_storage->texture_add_to_decal_atlas(light->projector, light->type == RSE::LIGHT_OMNI);
-		}
 		light->dependency.changed_notify(Dependency::DEPENDENCY_CHANGED_LIGHT_SOFT_SHADOW_AND_PROJECTOR);
 	}
 }
@@ -789,6 +791,27 @@ void LightStorage::update_light_buffers(RenderDataRD *p_render_data, const Paged
 				light_data.specular = light->param[RSE::LIGHT_PARAM_SPECULAR];
 				light_data.volumetric_fog_energy = light->param[RSE::LIGHT_PARAM_VOLUMETRIC_FOG_ENERGY];
 				light_data.mask = light->cull_mask;
+
+				light_data.projector_rect[2] = 0.0;
+				const float projector_size = light->param[RSE::LIGHT_PARAM_DIRECTIONAL_PROJECTOR_SIZE];
+				if (projector_size > CMP_EPSILON && light->projector.is_valid()) {
+					const Rect2 rect = texture_storage->decal_atlas_get_texture_rect(light->projector);
+					if (rect.has_area()) {
+						light_data.projector_rect[0] = rect.position.x;
+						light_data.projector_rect[1] = rect.position.y;
+						light_data.projector_rect[2] = rect.size.width;
+						light_data.projector_rect[3] = rect.size.height;
+
+						const Transform3D view_to_light = light_transform.orthonormalized().inverse() * p_camera_transform;
+						for (int axis = 0; axis < 2; axis++) {
+							const Vector3 uv_row = view_to_light.basis[axis] / projector_size;
+							light_data.projector_uv[axis][0] = uv_row.x;
+							light_data.projector_uv[axis][1] = uv_row.y;
+							light_data.projector_uv[axis][2] = uv_row.z;
+							light_data.projector_uv[axis][3] = view_to_light.origin[axis] / projector_size + 0.5;
+						}
+					}
+				}
 
 				float size = light->param[RSE::LIGHT_PARAM_SIZE];
 

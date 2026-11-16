@@ -577,6 +577,8 @@ public:
 	FUNC3(decal_set_texture, RID, RSE::DecalTexture, RID)
 	FUNC2(decal_set_emission_energy, RID, float)
 	FUNC2(decal_set_albedo_mix, RID, float)
+	FUNC2(decal_set_orm_channels, RID, BitField<RSE::DecalORMChannel>)
+	FUNC2(decal_set_roughness_affects_ssr, RID, bool)
 	FUNC2(decal_set_modulate, RID, const Color &)
 	FUNC2(decal_set_cull_mask, RID, uint32_t)
 	FUNC4(decal_set_distance_fade, RID, bool, float, float)
@@ -888,12 +890,15 @@ public:
 	FUNC11(environment_set_fog, RID, bool, const Color &, float, float, float, float, float, float, float, RSE::EnvironmentFogMode)
 
 	FUNC4(environment_set_fog_depth, RID, float, float, float)
+	FUNC4(environment_set_fog_height_integrated, RID, bool, float, float)
 	FUNC14(environment_set_volumetric_fog, RID, bool, float, const Color &, const Color &, float, float, float, float, float, bool, float, float, float)
 
 	FUNC2(environment_set_volumetric_fog_volume_size, int, int)
 	FUNC1(environment_set_volumetric_fog_filter_active, bool)
 
 	FUNC11(environment_set_sdfgi, RID, bool, int, float, RSE::EnvironmentSDFGIYScale, bool, float, bool, float, float, float)
+	FUNC3(environment_set_sdfgi_contact_refinement, RID, float, float)
+	FUNC2(environment_set_sdfgi_world_space_irradiance, RID, bool)
 	FUNC1(environment_set_sdfgi_ray_count, RSE::EnvironmentSDFGIRayCount)
 	FUNC1(environment_set_sdfgi_frames_to_converge, RSE::EnvironmentSDFGIFramesToConverge)
 	FUNC1(environment_set_sdfgi_frames_to_update_light, RSE::EnvironmentSDFGIFramesToUpdateLight)
@@ -927,6 +932,7 @@ public:
 	FUNC8(camera_attributes_set_dof_blur, RID, bool, float, float, bool, float, float, float)
 	FUNC3(camera_attributes_set_exposure, RID, float, float)
 	FUNC6(camera_attributes_set_auto_exposure, RID, bool, float, float, float, float)
+	FUNC4(camera_attributes_set_auto_exposure_ev_adaptation, RID, bool, float, float)
 
 	/* SCENARIO API */
 
@@ -981,7 +987,9 @@ public:
 	FUNC4(instance_geometry_set_lightmap, RID, RID, const Rect2 &, int)
 	FUNC2(instance_geometry_set_lod_bias, RID, float)
 	FUNC2(instance_geometry_set_transparency, RID, float)
+	FUNC2(instance_geometry_set_render_after_dof, RID, bool)
 	FUNC3(instance_geometry_set_shader_parameter, RID, const StringName &, const Variant &)
+	FUNC1(instance_invalidate_sdfgi, RID)
 	FUNC2RC(Variant, instance_geometry_get_shader_parameter, RID, const StringName &)
 	FUNC2RC(Variant, instance_geometry_get_shader_parameter_default_value, RID, const StringName &)
 	FUNC2SC(instance_geometry_get_shader_parameter_list, RID, List<PropertyInfo> *)

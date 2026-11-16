@@ -877,8 +877,12 @@ Error SceneState::_parse_node(Node *p_owner, Node *p_node, int p_parent_idx, Has
 	// document it. if you fail to understand something, please ask!
 
 	//discard nodes that do not belong to be processed
+	bool traverse_only = false;
 	if (p_node != p_owner && p_node->get_owner() != p_owner && !p_owner->is_editable_instance(p_node->get_owner())) {
-		return OK;
+		if (!p_owner->is_node_exposed_in_inspector(p_node, true, true)) {
+			return OK;
+		}
+		traverse_only = !p_owner->is_node_exposed_in_inspector(p_node, false, true);
 	}
 
 	bool is_editable_instance = false;
@@ -939,7 +943,9 @@ Error SceneState::_parse_node(Node *p_owner, Node *p_node, int p_parent_idx, Has
 	// and save the ones that are worth saving
 
 	List<PropertyInfo> plist;
-	p_node->get_property_list(&plist);
+	if (!traverse_only) {
+		p_node->get_property_list(&plist);
+	}
 
 	Array pinned_props = _sanitize_node_pinned_properties(p_node);
 	Dictionary missing_resource_properties = p_node->get_meta(META_MISSING_RESOURCES, Dictionary());
@@ -1089,7 +1095,9 @@ Error SceneState::_parse_node(Node *p_owner, Node *p_node, int p_parent_idx, Has
 	// discard groups that come from the original scene
 
 	List<Node::GroupInfo> groups;
-	p_node->get_groups(&groups);
+	if (!traverse_only) {
+		p_node->get_groups(&groups);
+	}
 	for (const Node::GroupInfo &gi : groups) {
 		if (!gi.persistent) {
 			continue;

@@ -119,6 +119,8 @@ void RenderSceneDataRD::update_ubo(RID p_uniform_buffer, RSE::ViewportDebugDraw 
 	ubo.z_near = z_near;
 
 	ubo.flags = 0;
+	ubo.flags |= cam_orthogonal ? SCENE_DATA_FLAGS_ORTHOGONAL_CAMERA : 0;
+	ubo.fog_height_falloff = -1.0f;
 
 	ubo.flags |= p_pancake_shadows ? SCENE_DATA_FLAGS_USE_PANCAKE_SHADOWS : 0;
 
@@ -222,6 +224,10 @@ void RenderSceneDataRD::update_ubo(RID p_uniform_buffer, RSE::ViewportDebugDraw 
 		ubo.fog_density = render_scene_render->environment_get_fog_density(p_env);
 		ubo.fog_height = render_scene_render->environment_get_fog_height(p_env);
 		ubo.fog_height_density = render_scene_render->environment_get_fog_height_density(p_env);
+		const Vector2 fog_height_integration = render_scene_render->environment_get_fog_height_integration(p_env);
+		ubo.fog_height_falloff = fog_height_integration.x;
+		ubo.fog_start_distance = fog_height_integration.y;
+		ubo.fog_height_view_offset = cam_transform.origin.y - ubo.fog_height;
 		ubo.fog_aerial_perspective = render_scene_render->environment_get_fog_aerial_perspective(p_env);
 
 		ubo.fog_depth_curve = render_scene_render->environment_get_fog_depth_curve(p_env);

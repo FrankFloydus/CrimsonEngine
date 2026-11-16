@@ -105,10 +105,18 @@
 			If [code]true[/code], fog effects are enabled.
 		</member>
 		<member name="fog_height" type="float" setter="set_fog_height" getter="get_fog_height" default="0.0">
-			The height at which the height fog effect begins.
+			The height at which the height fog effect begins. When [member fog_height_integrated] is active, this is the world-space Y at which the exponential layer has the density specified by [member fog_density].
 		</member>
 		<member name="fog_height_density" type="float" setter="set_fog_height_density" getter="get_fog_height_density" default="0.0">
 			The density used to increase fog as height decreases. To make fog increase as height increases, use a negative value.
+			This parameter is ignored by ray-integrated height fog.
+		</member>
+		<member name="fog_height_falloff" type="float" setter="set_fog_height_falloff" getter="get_fog_height_falloff" default="0.01">
+			The rate at which the density of the ray-integrated layer decays with elevation, in inverse world units. A value of [code]0.0[/code] produces a uniform layer. At a height of one divided by the falloff above [member fog_height], the density is approximately 37 percent of [member fog_density].
+		</member>
+		<member name="fog_height_integrated" type="bool" setter="set_fog_height_integrated" getter="is_fog_height_integrated" default="false">
+			If [code]true[/code], exponential fog evaluates the density along each viewing ray through an exponential height layer. Uses [member fog_height], [member fog_height_falloff], and [member fog_start_distance].
+			This affects surfaces in the Forward+ rendering method when [member fog_mode] is [constant FOG_MODE_EXPONENTIAL]. Sky fog and volumetric fog are controlled separately.
 		</member>
 		<member name="fog_light_color" type="Color" setter="set_fog_light_color" getter="get_fog_light_color" default="Color(0.518, 0.553, 0.608, 1)">
 			The fog's color.
@@ -122,6 +130,9 @@
 		<member name="fog_sky_affect" type="float" setter="set_fog_sky_affect" getter="get_fog_sky_affect" default="1.0">
 			The factor to use when affecting the sky with non-volumetric fog. [code]1.0[/code] means that fog can fully obscure the sky. Lower values reduce the impact of fog on sky rendering, with [code]0.0[/code] not affecting sky rendering at all.
 			[b]Note:[/b] [member fog_sky_affect] has no visual effect if [member fog_aerial_perspective] is [code]1.0[/code].
+		</member>
+		<member name="fog_start_distance" type="float" setter="set_fog_start_distance" getter="get_fog_start_distance" default="0.0">
+			The distance along the viewing ray before fog begins accumulating. Only used when ray-integrated height fog is active.
 		</member>
 		<member name="fog_sun_scatter" type="float" setter="set_fog_sun_scatter" getter="get_fog_sun_scatter" default="0.0">
 			If set above [code]0.0[/code], renders the scene's directional light(s) in the fog color depending on the view angle. This can be used to give the impression that the sun is "piercing" through the fog.
@@ -214,6 +225,12 @@
 		<member name="sdfgi_cascades" type="int" setter="set_sdfgi_cascades" getter="get_sdfgi_cascades" default="4">
 			The number of cascades to use for SDFGI (between 1 and 8). A higher number of cascades allows displaying SDFGI further away while preserving detail up close, at the cost of performance. When using SDFGI on small-scale levels, [member sdfgi_cascades] can often be decreased between [code]1[/code] and [code]4[/code] to improve performance.
 		</member>
+		<member name="sdfgi_contact_refinement_radius" type="float" setter="set_sdfgi_contact_refinement_radius" getter="get_sdfgi_contact_refinement_radius" default="0.0">
+			The distance in meters within which the finest SDFGI cascade can refine diffuse lighting using nearby voxel surfaces. A value of [code]0.0[/code] disables refinement. The current implementation is available in Forward+ and requires [member sdfgi_use_occlusion] to be disabled.
+		</member>
+		<member name="sdfgi_contact_refinement_strength" type="float" setter="set_sdfgi_contact_refinement_strength" getter="get_sdfgi_contact_refinement_strength" default="1.0">
+			Blend weight for the local radiance refinement. This only applies when [member sdfgi_contact_refinement_radius] is greater than zero.
+		</member>
 		<member name="sdfgi_enabled" type="bool" setter="set_sdfgi_enabled" getter="is_sdfgi_enabled" default="false">
 			If [code]true[/code], enables signed distance field global illumination for meshes that have their [member GeometryInstance3D.gi_mode] set to [constant GeometryInstance3D.GI_MODE_STATIC]. SDFGI is a real-time global illumination technique that works well with procedurally generated and user-built levels, including in situations where geometry is created during gameplay. The signed distance field is automatically generated around the camera as it moves. Dynamic lights are supported, but dynamic occluders and emissive surfaces are not.
 			[b]Note:[/b] SDFGI is only supported in the Forward+ rendering method, not Mobile or Compatibility.
@@ -242,6 +259,9 @@
 		</member>
 		<member name="sdfgi_use_occlusion" type="bool" setter="set_sdfgi_use_occlusion" getter="is_sdfgi_using_occlusion" default="false">
 			If [code]true[/code], SDFGI uses an occlusion detection approach to reduce light leaking. Occlusion may however introduce dark blotches in certain spots, which may be undesired in mostly outdoor scenes. [member sdfgi_use_occlusion] has a performance impact and should only be enabled when needed.
+		</member>
+		<member name="sdfgi_world_space_irradiance" type="bool" setter="set_sdfgi_world_space_irradiance" getter="is_sdfgi_world_space_irradiance" default="false">
+			If [code]true[/code], SDFGI uses world-space directions and solid-angle weights for probe lighting. The voxel Y scale continues to control geometry sampling. Changing this property rebuilds the probe cache. Forward+ only.
 		</member>
 		<member name="sdfgi_y_scale" type="int" setter="set_sdfgi_y_scale" getter="get_sdfgi_y_scale" enum="Environment.SDFGIYScale" default="1">
 			The Y scale to use for SDFGI cells. Lower values will result in SDFGI cells being packed together more closely on the Y axis. This is used to balance between quality and covering a lot of vertical ground. [member sdfgi_y_scale] should be set depending on how vertical your scene is (and how fast your camera may move on the Y axis).

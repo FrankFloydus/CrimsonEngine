@@ -473,6 +473,7 @@ void Light3D::_bind_methods() {
 	BIND_ENUM_CONSTANT(PARAM_TRANSMITTANCE_BIAS);
 	BIND_ENUM_CONSTANT(PARAM_INTENSITY);
 	BIND_ENUM_CONSTANT(PARAM_CONTACT_SHADOW_BLUR);
+	BIND_ENUM_CONSTANT(PARAM_DIRECTIONAL_PROJECTOR_SIZE);
 	BIND_ENUM_CONSTANT(PARAM_MAX);
 
 	BIND_ENUM_CONSTANT(BAKE_DISABLED);
@@ -528,6 +529,7 @@ Light3D::Light3D(RSE::LightType p_type) {
 	set_param(PARAM_TRANSMITTANCE_BIAS, 0.05);
 	set_param(PARAM_SHADOW_FADE_START, 1);
 	set_param(PARAM_CONTACT_SHADOW_BLUR, 1.0);
+	set_param(PARAM_DIRECTIONAL_PROJECTOR_SIZE, 0.0);
 	// For OmniLight3D and SpotLight3D, specified in Lumens.
 	set_param(PARAM_INTENSITY, 1000.0);
 	set_temperature(6500.0); // Nearly white.
@@ -589,9 +591,11 @@ void DirectionalLight3D::_validate_property(PropertyInfo &p_property) const {
 			p_property.usage = PROPERTY_USAGE_NO_EDITOR;
 		}
 	}
-	if (p_property.name == "light_size" || p_property.name == "light_projector") {
-		// Not implemented in DirectionalLight3D (`light_size` is replaced by `light_angular_distance`).
+	if (p_property.name == "light_size") {
+		// Directional lights use light_angular_distance instead.
 		p_property.usage = PROPERTY_USAGE_NONE;
+	} else if ((p_property.name == "light_projector" || p_property.name == "directional_projector_size") && OS::get_singleton()->get_current_rendering_method() != "forward_plus") {
+		p_property.usage = PROPERTY_USAGE_NO_EDITOR;
 	} else if (p_property.name == "distance_fade_enabled" || p_property.name == "distance_fade_begin" || p_property.name == "distance_fade_shadow" || p_property.name == "distance_fade_length") {
 		// Not relevant for DirectionalLight3D, as the light LOD system only pertains to point lights.
 		// For DirectionalLight3D, `directional_shadow_max_distance` can be used instead.
@@ -610,6 +614,7 @@ void DirectionalLight3D::_bind_methods() {
 	ClassDB::bind_method(D_METHOD("get_sky_mode"), &DirectionalLight3D::get_sky_mode);
 
 	ADD_PROPERTY(PropertyInfo(Variant::INT, "sky_mode", PROPERTY_HINT_ENUM, "Light and Sky,Light Only,Sky Only"), "set_sky_mode", "get_sky_mode");
+	ADD_PROPERTYI(PropertyInfo(Variant::FLOAT, "directional_projector_size", PROPERTY_HINT_RANGE, "0,8192,0.1,or_greater,exp,suffix:m"), "set_param", "get_param", PARAM_DIRECTIONAL_PROJECTOR_SIZE);
 
 	ADD_GROUP("Directional Shadow", "directional_shadow_");
 	ADD_PROPERTY(PropertyInfo(Variant::INT, "directional_shadow_mode", PROPERTY_HINT_ENUM, "Orthogonal (Fast),PSSM 2 Splits (Average),PSSM 4 Splits (Slow)"), "set_shadow_mode", "get_shadow_mode");

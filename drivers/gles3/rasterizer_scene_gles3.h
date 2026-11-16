@@ -903,7 +903,7 @@ public:
 
 	/* SDFGI UPDATE */
 
-	void sdfgi_update(const Ref<RenderSceneBuffers> &p_render_buffers, RID p_environment, const Vector3 &p_world_position) override {}
+	void sdfgi_update(const Ref<RenderSceneBuffers> &p_render_buffers, RID p_environment, const Vector3 &p_world_position, RID p_scenario, const SDFGIGeometryChanges &p_geometry_changes) override {}
 	int sdfgi_get_pending_region_count(const Ref<RenderSceneBuffers> &p_render_buffers) const override {
 		return 0;
 	}

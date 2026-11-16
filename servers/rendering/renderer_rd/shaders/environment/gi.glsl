@@ -17,6 +17,7 @@ layout(local_size_x = 8, local_size_y = 8, local_size_z = 1) in;
 layout(constant_id = 0) const bool sc_half_res = false;
 layout(constant_id = 1) const bool sc_use_full_projection_matrix = false;
 layout(constant_id = 2) const bool sc_use_vrs = false;
+layout(constant_id = 3) const bool sc_contact_refinement = false;
 
 #define SDFGI_MAX_CASCADES 8
 
@@ -65,10 +66,10 @@ layout(set = 0, binding = 15, std140) uniform SDFGI {
 	float y_mult;
 
 	vec3 occlusion_clamp;
-	uint pad3;
+	float contact_refinement_radius;
 
 	vec3 occlusion_renormalize;
-	uint pad4;
+	float contact_refinement_strength;
 
 	vec3 cascade_probe_size;
 	uint pad5;
@@ -285,6 +286,219 @@ void sdfvoxel_gi_process(uint cascade, vec3 cascade_pos, vec3 cam_pos, vec3 cam_
 	specular_light = specular_accum;
 }
 
+vec3 sdfgi_contact_probe_radiance(uint cascade, vec3 probe_position, vec3 normal, vec3 direction) {
+	probe_position += normal * sdfgi.normal_bias;
+	vec3 base = floor(probe_position);
+	vec3 delta = probe_position - base;
+	ivec3 probe_index = ivec3(base);
+	vec3 texel = vec3(
+			(probe_index.x + probe_index.z * sdfgi.probe_axis_size) * (SDFGI_OCT_SIZE + 2) + 1,
+			probe_index.y * (SDFGI_OCT_SIZE + 2) + 1,
+			int(cascade + sdfgi.max_cascades));
+	texel.xy += octahedron_encode(direction) * float(SDFGI_OCT_SIZE);
+	vec3 uv = texel * sdfgi.lightprobe_tex_pixel_size;
+	vec3 radiance = vec3(0.0);
+	float weight_sum = 0.0;
+	for (uint i = 0; i < 8; i++) {
+		ivec3 offset = (ivec3(i) >> ivec3(0, 1, 2)) & ivec3(1);
+		vec3 to_probe = vec3(offset) - delta;
+		vec3 trilinear = vec3(1.0) - abs(to_probe);
+		float cosine = dot(normal, to_probe) * inversesqrt(max(dot(to_probe, to_probe), 0.000001));
+		float weight = trilinear.x * trilinear.y * trilinear.z * max(0.005, cosine);
+
+		vec3 probe_uv = uv;
+		probe_uv.xy += vec2(offset.xy) * sdfgi.lightprobe_uv_offset.xy;
+		probe_uv.x += float(offset.z) * sdfgi.lightprobe_uv_offset.z;
+		radiance += textureLod(sampler2DArray(lightprobe_texture, linear_sampler), probe_uv, 0.0).rgb * weight;
+		weight_sum += weight;
+	}
+	return radiance / max(weight_sum, 0.000001);
+}
+
+vec3 sdfgi_contact_gradient(uint cascade, vec3 uv, vec3 epsilon) {
+	return vec3(
+			textureLod(sampler3D(sdf_cascades[cascade], linear_sampler), uv + vec3(epsilon.x, 0.0, 0.0), 0.0).r - textureLod(sampler3D(sdf_cascades[cascade], linear_sampler), uv - vec3(epsilon.x, 0.0, 0.0), 0.0).r,
+			textureLod(sampler3D(sdf_cascades[cascade], linear_sampler), uv + vec3(0.0, epsilon.y, 0.0), 0.0).r - textureLod(sampler3D(sdf_cascades[cascade], linear_sampler), uv - vec3(0.0, epsilon.y, 0.0), 0.0).r,
+			textureLod(sampler3D(sdf_cascades[cascade], linear_sampler), uv + vec3(0.0, 0.0, epsilon.z), 0.0).r - textureLod(sampler3D(sdf_cascades[cascade], linear_sampler), uv - vec3(0.0, 0.0, epsilon.z), 0.0).r);
+}
+
+vec4 sdfgi_contact_surface_radiance(uint cascade, vec3 start_cell, vec3 receiver_normal, vec3 direction, float max_advance) {
+	vec3 inverse_grid_size = vec3(1.0) / sdfgi.grid_size;
+	float advance = 0.3;
+	for (int step = 0; step < 6; step++) {
+		if (advance >= max_advance) {
+			break;
+		}
+		vec3 uv = (start_cell + direction * advance) * inverse_grid_size;
+		float distance = textureLod(sampler3D(sdf_cascades[cascade], linear_sampler), uv, 0.0).r * 255.0 - 1.0;
+		if (distance < 0.2) {
+			vec3 gradient = sdfgi_contact_gradient(cascade, uv, vec3(0.001));
+			if (dot(gradient, gradient) < 0.00000001) {
+				break;
+			}
+			vec3 hit_normal = normalize(gradient);
+			float facing = smoothstep(0.10, 0.35, dot(hit_normal, -direction));
+			// A same-facing hit can be part of the receiving voxel's unsigned distance field.
+			float opposition = -dot(hit_normal, receiver_normal);
+			facing *= smoothstep(0.10, 0.45, opposition);
+			facing *= max(smoothstep(0.35, 1.05, advance), smoothstep(0.36, 0.64, opposition));
+			if (facing <= 0.0) {
+				break;
+			}
+			vec3 light = textureLod(sampler3D(light_cascades[cascade], linear_sampler), uv, 0.0).rgb;
+			vec4 aniso0 = textureLod(sampler3D(aniso0_cascades[cascade], linear_sampler), uv, 0.0);
+			vec3 aniso1 = vec3(aniso0.a, textureLod(sampler3D(aniso1_cascades[cascade], linear_sampler), uv, 0.0).rg);
+			// Same six signed-axis lobes and surface normal as the SDFGI probe integrator.
+			float anisotropy = dot(max(hit_normal * aniso0.rgb, vec3(0.0)) + max(-hit_normal * aniso1, vec3(0.0)), vec3(1.0));
+			float distance_weight = 1.0 - smoothstep(max_advance * 0.55, max_advance, advance);
+			return vec4(light * anisotropy, facing * distance_weight);
+		}
+		advance += max(distance, 0.25);
+	}
+	return vec4(0.0);
+}
+
+vec4 sdfgi_contact_support_plane(uint cascade, vec3 receiver, vec3 start_cell, vec3 direction, float max_advance) {
+	vec3 inverse_grid = vec3(1.0) / sdfgi.grid_size;
+	float advance = 0.0;
+	for (int step = 0; step < 6; step++) {
+		if (advance >= max_advance) {
+			break;
+		}
+		vec3 hit_cell = start_cell + direction * advance;
+		vec3 uv = hit_cell * inverse_grid;
+		float distance = textureLod(sampler3D(sdf_cascades[cascade], linear_sampler), uv, 0.0).r * 255.0 - 1.0;
+		if (distance < 0.2) {
+			// Estimate the plane over a wider footprint on the approach side of the R8 SDF.
+			vec3 gradient = sdfgi_contact_gradient(cascade, (hit_cell - direction * 0.55) * inverse_grid, inverse_grid * 0.40);
+			if (dot(gradient, gradient) < 0.00000001) {
+				break;
+			}
+			vec3 hit_normal = normalize(gradient);
+			float plane_distance = dot(receiver - hit_cell, hit_normal);
+			float approach = smoothstep(0.35, 0.65, dot(hit_normal, -direction));
+			// The occupied voxel can extend across the actual contact. Fade over its width.
+			float plane_side = smoothstep(-1.25, -0.20, plane_distance);
+			if (approach * plane_side <= 0.0) {
+				break;
+			}
+			float world_normal_length = length(vec3(hit_normal.x, hit_normal.y * sdfgi.y_mult, hit_normal.z));
+			float distance_meters = max(plane_distance, 0.0) / (sdfgi.cascades[cascade].to_cell * world_normal_length);
+			float confidence = 1.0 - smoothstep(sdfgi.contact_refinement_radius * 0.25,
+					sdfgi.contact_refinement_radius * 0.78, distance_meters);
+			return vec4(hit_normal, confidence * approach * plane_side);
+		}
+		advance += max(distance, 0.25);
+	}
+	return vec4(0.0);
+}
+
+vec3 sdfgi_refine_contact_diffuse(uint cascade, vec3 position, vec3 normal, vec3 probe_position, vec3 base_diffuse) {
+	// The prototype uses the finest cascade so a near hit resolves in several voxels.
+	if (cascade != 0u || sdfgi.use_occlusion) {
+		return vec3(0.0);
+	}
+	float to_cell = sdfgi.cascades[cascade].to_cell;
+	vec3 receiver = (position - sdfgi.cascades[cascade].position) * to_cell;
+	vec3 start_cell = receiver + normal * 0.8;
+	// Bound traversal in world meters even when the SDFGI grid uses compressed Y.
+	float max_bound = sdfgi.contact_refinement_radius * to_cell * max(sdfgi.y_mult, 1.0);
+	if (max_bound < 2.0) {
+		return vec3(0.0);
+	}
+	float margin = max_bound + 1.0;
+	vec3 to_edge = min(start_cell, sdfgi.grid_size - start_cell);
+	float edge_fade = smoothstep(margin, margin + max_bound, min(to_edge.x, min(to_edge.y, to_edge.z)));
+	if (edge_fade <= 0.0) {
+		return vec3(0.0);
+	}
+	vec3 biased_probe = probe_position + normal * sdfgi.normal_bias;
+	if (any(lessThan(biased_probe, vec3(0.0))) || any(greaterThanEqual(biased_probe, sdfgi.cascade_probe_size))) {
+		return vec3(0.0);
+	}
+
+	vec3 tangent = normalize(cross(normal, abs(normal.y) < 0.95 ? vec3(0.0, 1.0, 0.0) : vec3(1.0, 0.0, 0.0)));
+	vec3 bitangent = cross(normal, tangent);
+	const vec2 directions[4] = vec2[](vec2(1.0, 0.0), vec2(0.0, 1.0), vec2(-1.0, 0.0), vec2(0.0, -1.0));
+	vec3 ground_support_direction = vec3(0.0);
+	float ground_support_confidence = 0.0;
+	float support_confidence = 0.0;
+	vec3 receiver_world_normal = normalize(vec3(normal.x, normal.y / sdfgi.y_mult, normal.z));
+	float ground_receiver = 1.0 - smoothstep(0.40, 0.82, receiver_world_normal.y);
+	// Separate the tangential footprint from conservative voxels containing the receiver.
+	vec3 support_offset = normal * 2.2;
+	vec3 world_offset = vec3(support_offset.x, support_offset.y / sdfgi.y_mult, support_offset.z);
+	float radius_cells = sdfgi.contact_refinement_radius * to_cell;
+	float radius_remaining = radius_cells * radius_cells - dot(world_offset, world_offset);
+	if (radius_remaining > 0.0) {
+		vec3 support_origin = receiver + support_offset;
+		for (int i = 0; i < 4; i++) {
+			vec3 direction = tangent * directions[i].x + bitangent * directions[i].y;
+			vec3 world_direction = vec3(direction.x, direction.y / sdfgi.y_mult, direction.z);
+			float direction_length_sq = dot(world_direction, world_direction);
+			float radial_slope = dot(world_offset, world_direction);
+			float sphere_edge = sqrt(radial_slope * radial_slope + direction_length_sq * radius_remaining);
+			float approach_cells = min(1.25, (sphere_edge + radial_slope) / direction_length_sq);
+			float forward_cells = (sphere_edge - radial_slope) / direction_length_sq;
+			float max_advance = forward_cells + approach_cells;
+			vec3 begin = support_origin - direction * approach_cells;
+			vec3 end = begin + direction * max_advance;
+			if (any(lessThan(min(begin, end), vec3(1.0))) || any(greaterThanEqual(max(begin, end), sdfgi.grid_size - vec3(1.0)))) {
+				continue;
+			}
+			vec4 support = sdfgi_contact_support_plane(cascade, receiver, begin, direction, max_advance);
+			float perpendicular = 1.0 - smoothstep(0.10, 0.45, abs(dot(normal, support.xyz)));
+			float confidence = support.a * perpendicular * smoothstep(0.0, 0.75, forward_cells);
+			support_confidence = max(support_confidence, confidence);
+			// Ground support must face up in world space. Combining its underside with its
+			// upper face can cancel the directions and flip the probe offset at a voxel boundary.
+			vec3 support_world_gradient = vec3(support.x, support.y * sdfgi.y_mult, support.z);
+			float up = support_world_gradient.y / max(length(support_world_gradient), 0.00001);
+			float ground_weight = confidence * smoothstep(0.35, 0.70, up);
+			ground_support_direction += support.xyz * ground_weight * ground_weight;
+			ground_support_confidence = max(ground_support_confidence, ground_weight);
+		}
+	}
+
+	vec3 correction = vec3(0.0);
+	// Preserve ordinary diffuse sampling on upward-facing ground.
+	if (ground_receiver > 0.0 && dot(ground_support_direction, ground_support_direction) > 0.000001) {
+		vec3 direction = normalize(ground_support_direction);
+		vec3 world_direction = vec3(direction.x, direction.y / sdfgi.y_mult, direction.z);
+		float offset_meters = min(0.6, sdfgi.contact_refinement_radius * 0.55);
+		vec3 relocated = probe_position + direction * (offset_meters * sdfgi.cascades[cascade].to_probe / length(world_direction));
+		vec3 biased_relocated = relocated + normal * sdfgi.normal_bias;
+		if (all(greaterThanEqual(biased_relocated, vec3(0.0))) && all(lessThan(biased_relocated, sdfgi.cascade_probe_size))) {
+			vec3 relocated_diffuse, unused_specular;
+			sdfvoxel_gi_process(cascade, relocated, position, normal, normal, 1.0, relocated_diffuse, unused_specular);
+			// Add the estimated missing support irradiance using the relocated probe's tint.
+			const vec3 luma_weights = vec3(0.2126, 0.7152, 0.0722);
+			float relocated_luma = dot(relocated_diffuse, luma_weights);
+			float supported_luma = max(relocated_luma - dot(base_diffuse, luma_weights), 0.0);
+			correction += relocated_diffuse * (supported_luma / max(relocated_luma, 0.00001) * ground_support_confidence * ground_receiver);
+		}
+	}
+
+	// Upward receivers can be displaced after their static SDF voxel was captured.
+	// Limit near-ray radiance replacement to vertical and downward-facing receivers.
+	float replacement_receiver = 1.0 - smoothstep(0.10, 0.40, receiver_world_normal.y);
+	float replacement_weight = (1.0 - smoothstep(0.35, 0.90, support_confidence)) * replacement_receiver;
+	if (replacement_weight > 0.0) {
+		float normalization = sdfgi.cascades[cascade].exposure_normalization;
+		for (int i = 0; i < 4; i++) {
+			vec3 direction = (normal + tangent * directions[i].x + bitangent * directions[i].y) * 0.70710678;
+			vec3 world_direction = vec3(direction.x, direction.y / sdfgi.y_mult, direction.z);
+			float max_advance = radius_cells / length(world_direction);
+			vec4 near_radiance = sdfgi_contact_surface_radiance(cascade, start_cell, normal, direction, max_advance);
+			if (near_radiance.a > 0.0) {
+				vec3 coarse_radiance = sdfgi_contact_probe_radiance(cascade, probe_position, normal, direction);
+				correction += (near_radiance.rgb - coarse_radiance) * (0.25 * normalization * near_radiance.a * replacement_weight);
+			}
+		}
+	}
+	return correction * (edge_fade * sdfgi.contact_refinement_strength);
+}
+
 void sdfgi_process(vec3 vertex, vec3 normal, vec3 reflection, float roughness, out vec4 ambient_light, out vec4 reflection_light) {
 	//make vertex orientation the world one, but still align to camera
 	vertex.y *= sdfgi.y_mult;
@@ -330,6 +544,9 @@ void sdfgi_process(vec3 vertex, vec3 normal, vec3 reflection, float roughness, o
 		float blend;
 		vec3 diffuse, specular;
 		sdfvoxel_gi_process(cascade, cascade_pos, cam_pos, cam_normal, reflection, roughness, diffuse, specular);
+		if (sc_contact_refinement) {
+			diffuse = max(diffuse + sdfgi_refine_contact_diffuse(cascade, cam_pos, cam_normal, cascade_pos, diffuse), vec3(0.0));
+		}
 
 		{
 			//process blend

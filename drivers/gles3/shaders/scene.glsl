@@ -1173,9 +1173,15 @@ uniform uint decal_count;
 uniform uint decals0;
 uniform uint decals1;
 
+#define DECAL_ORM_CHANNEL_AO (1u << 0)
+#define DECAL_ORM_CHANNEL_ROUGHNESS (1u << 1)
+#define DECAL_ORM_CHANNEL_METALLIC (1u << 2)
+
 struct DecalData {
 	mat4 xform; //to decal transform
-	vec3 inv_extents;
+	uint orm_channels;
+	uint pad0;
+	uint pad1;
 	float albedo_mix;
 	vec4 albedo_rect;
 	vec4 normal_rect;
@@ -2519,16 +2525,23 @@ void main() {
 				normal = vec3(normalize(mix(vec3(normal), decal_normal, decal_albedo.a)));
 			}
 
-			if (decal_data_block.data[decal_index].orm_rect != vec4(0.0)) {
+			uint orm_channels = decal_data_block.data[decal_index].orm_channels;
+			if (orm_channels != 0u && decal_data_block.data[decal_index].orm_rect != vec4(0.0)) {
 				vec3 decal_orm;
 #ifdef USE_DECAL_MIPMAPS
 				decal_orm = textureGrad(decal_atlas, uv_local.xz * decal_data_block.data[decal_index].orm_rect.zw + decal_data_block.data[decal_index].orm_rect.xy, ddx * decal_data_block.data[decal_index].orm_rect.zw, ddy * decal_data_block.data[decal_index].orm_rect.zw).xyz;
 #else
 				decal_orm = textureLod(decal_atlas, uv_local.xz * decal_data_block.data[decal_index].orm_rect.zw + decal_data_block.data[decal_index].orm_rect.xy, 0.0).xyz;
 #endif // USE_DECAL_MIPMAPS
-				ao = mix(float(ao), decal_orm.r, decal_albedo.a);
-				roughness = mix(float(roughness), decal_orm.g, decal_albedo.a);
-				metallic = mix(float(metallic), decal_orm.b, decal_albedo.a);
+				if ((orm_channels & DECAL_ORM_CHANNEL_AO) != 0u) {
+					ao = mix(float(ao), decal_orm.r, decal_albedo.a);
+				}
+				if ((orm_channels & DECAL_ORM_CHANNEL_ROUGHNESS) != 0u) {
+					roughness = mix(float(roughness), decal_orm.g, decal_albedo.a);
+				}
+				if ((orm_channels & DECAL_ORM_CHANNEL_METALLIC) != 0u) {
+					metallic = mix(float(metallic), decal_orm.b, decal_albedo.a);
+				}
 			}
 		}
 

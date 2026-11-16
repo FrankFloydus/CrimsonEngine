@@ -32,6 +32,7 @@
 
 #include "core/config/engine.h"
 #include "core/config/project_settings.h"
+#include "core/math/math_funcs.h"
 #include "core/object/class_db.h"
 #include "core/os/os.h"
 #include "servers/rendering/rendering_server.h"
@@ -94,6 +95,44 @@ float CameraAttributes::get_auto_exposure_scale() const {
 	return auto_exposure_scale;
 }
 
+void CameraAttributes::_update_auto_exposure_ev_adaptation() {
+	RS::get_singleton()->camera_attributes_set_auto_exposure_ev_adaptation(
+			camera_attributes, auto_exposure_use_ev_adaptation, auto_exposure_bright_scene_speed, auto_exposure_dark_scene_speed);
+}
+
+void CameraAttributes::set_auto_exposure_use_ev_adaptation(bool p_enabled) {
+	auto_exposure_use_ev_adaptation = p_enabled;
+	_update_auto_exposure_ev_adaptation();
+	notify_property_list_changed();
+	emit_changed();
+}
+
+bool CameraAttributes::is_auto_exposure_using_ev_adaptation() const {
+	return auto_exposure_use_ev_adaptation;
+}
+
+void CameraAttributes::set_auto_exposure_bright_scene_speed(float p_speed) {
+	ERR_FAIL_COND(!Math::is_finite(p_speed) || p_speed < 0.0f);
+	auto_exposure_bright_scene_speed = p_speed;
+	_update_auto_exposure_ev_adaptation();
+	emit_changed();
+}
+
+float CameraAttributes::get_auto_exposure_bright_scene_speed() const {
+	return auto_exposure_bright_scene_speed;
+}
+
+void CameraAttributes::set_auto_exposure_dark_scene_speed(float p_speed) {
+	ERR_FAIL_COND(!Math::is_finite(p_speed) || p_speed < 0.0f);
+	auto_exposure_dark_scene_speed = p_speed;
+	_update_auto_exposure_ev_adaptation();
+	emit_changed();
+}
+
+float CameraAttributes::get_auto_exposure_dark_scene_speed() const {
+	return auto_exposure_dark_scene_speed;
+}
+
 RID CameraAttributes::get_rid() const {
 	return camera_attributes;
 }
@@ -111,6 +150,10 @@ void CameraAttributes::_validate_property(PropertyInfo &p_property) const {
 		p_property.usage = PROPERTY_USAGE_NO_EDITOR | PROPERTY_USAGE_INTERNAL;
 		return;
 	}
+
+	if (!auto_exposure_use_ev_adaptation && (p_property.name == "auto_exposure_bright_scene_speed" || p_property.name == "auto_exposure_dark_scene_speed")) {
+		p_property.usage &= ~PROPERTY_USAGE_EDITOR;
+	}
 }
 
 void CameraAttributes::_bind_methods() {
@@ -125,6 +168,12 @@ void CameraAttributes::_bind_methods() {
 	ClassDB::bind_method(D_METHOD("get_auto_exposure_speed"), &CameraAttributes::get_auto_exposure_speed);
 	ClassDB::bind_method(D_METHOD("set_auto_exposure_scale", "exposure_grey"), &CameraAttributes::set_auto_exposure_scale);
 	ClassDB::bind_method(D_METHOD("get_auto_exposure_scale"), &CameraAttributes::get_auto_exposure_scale);
+	ClassDB::bind_method(D_METHOD("set_auto_exposure_use_ev_adaptation", "enabled"), &CameraAttributes::set_auto_exposure_use_ev_adaptation);
+	ClassDB::bind_method(D_METHOD("is_auto_exposure_using_ev_adaptation"), &CameraAttributes::is_auto_exposure_using_ev_adaptation);
+	ClassDB::bind_method(D_METHOD("set_auto_exposure_bright_scene_speed", "speed"), &CameraAttributes::set_auto_exposure_bright_scene_speed);
+	ClassDB::bind_method(D_METHOD("get_auto_exposure_bright_scene_speed"), &CameraAttributes::get_auto_exposure_bright_scene_speed);
+	ClassDB::bind_method(D_METHOD("set_auto_exposure_dark_scene_speed", "speed"), &CameraAttributes::set_auto_exposure_dark_scene_speed);
+	ClassDB::bind_method(D_METHOD("get_auto_exposure_dark_scene_speed"), &CameraAttributes::get_auto_exposure_dark_scene_speed);
 
 	ADD_GROUP("Exposure", "exposure_");
 	ADD_PROPERTY(PropertyInfo(Variant::FLOAT, "exposure_sensitivity", PROPERTY_HINT_RANGE, "0.1,32000.0,0.1,suffix:ISO"), "set_exposure_sensitivity", "get_exposure_sensitivity");
@@ -134,6 +183,9 @@ void CameraAttributes::_bind_methods() {
 	ADD_PROPERTY(PropertyInfo(Variant::BOOL, "auto_exposure_enabled", PROPERTY_HINT_GROUP_ENABLE), "set_auto_exposure_enabled", "is_auto_exposure_enabled");
 	ADD_PROPERTY(PropertyInfo(Variant::FLOAT, "auto_exposure_scale", PROPERTY_HINT_RANGE, "0.01,64,0.01"), "set_auto_exposure_scale", "get_auto_exposure_scale");
 	ADD_PROPERTY(PropertyInfo(Variant::FLOAT, "auto_exposure_speed", PROPERTY_HINT_RANGE, "0.01,64,0.01"), "set_auto_exposure_speed", "get_auto_exposure_speed");
+	ADD_PROPERTY(PropertyInfo(Variant::BOOL, "auto_exposure_use_ev_adaptation"), "set_auto_exposure_use_ev_adaptation", "is_auto_exposure_using_ev_adaptation");
+	ADD_PROPERTY(PropertyInfo(Variant::FLOAT, "auto_exposure_bright_scene_speed", PROPERTY_HINT_RANGE, "0,64,0.01,or_greater,suffix:stops/s"), "set_auto_exposure_bright_scene_speed", "get_auto_exposure_bright_scene_speed");
+	ADD_PROPERTY(PropertyInfo(Variant::FLOAT, "auto_exposure_dark_scene_speed", PROPERTY_HINT_RANGE, "0,64,0.01,or_greater,suffix:stops/s"), "set_auto_exposure_dark_scene_speed", "get_auto_exposure_dark_scene_speed");
 }
 
 CameraAttributes::CameraAttributes() {

@@ -339,6 +339,8 @@ private:
 		RID textures[RSE::DECAL_TEXTURE_MAX];
 		float emission_energy = 1.0;
 		float albedo_mix = 1.0;
+		uint32_t orm_channels = RSE::DECAL_ORM_CHANNEL_ALL;
+		bool roughness_affects_ssr = false;
 		Color modulate = Color(1, 1, 1, 1);
 		uint32_t cull_mask = (1 << 20) - 1;
 		float upper_fade = 0.3;
@@ -369,7 +371,9 @@ private:
 
 	struct DecalData {
 		float xform[16];
-		float inv_extents[3];
+		uint32_t orm_channels;
+		uint32_t roughness_affects_ssr;
+		uint32_t padding = 0;
 		float albedo_mix;
 		float albedo_rect[4];
 		float normal_rect[4];
@@ -396,6 +400,7 @@ private:
 
 	uint32_t max_decals = 0;
 	uint32_t decal_count = 0;
+	uint32_t ssr_roughness_decal_count = 0;
 	DecalData *decals = nullptr;
 	DecalInstanceSort *decal_sort = nullptr;
 	RID decal_buffer;
@@ -732,6 +737,8 @@ public:
 	virtual void decal_set_texture(RID p_decal, RSE::DecalTexture p_type, RID p_texture) override;
 	virtual void decal_set_emission_energy(RID p_decal, float p_energy) override;
 	virtual void decal_set_albedo_mix(RID p_decal, float p_mix) override;
+	virtual void decal_set_orm_channels(RID p_decal, BitField<RSE::DecalORMChannel> p_channels) override;
+	virtual void decal_set_roughness_affects_ssr(RID p_decal, bool p_enabled) override;
 	virtual void decal_set_modulate(RID p_decal, const Color &p_modulate) override;
 	virtual void decal_set_cull_mask(RID p_decal, uint32_t p_layers) override;
 	virtual void decal_set_distance_fade(RID p_decal, bool p_enabled, float p_begin, float p_length) override;
@@ -850,6 +857,7 @@ public:
 	void set_max_decals(const uint32_t p_max_decals);
 	RID get_decal_buffer() { return decal_buffer; }
 	void update_decal_buffer(const PagedArray<RID> &p_decals, const Transform3D &p_camera_xform);
+	bool has_ssr_roughness_decals(const PagedArray<RID> &p_decals, const Vector3 &p_camera_position) const;
 
 	/* RENDER TARGET API */
 

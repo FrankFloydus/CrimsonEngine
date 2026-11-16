@@ -63,6 +63,16 @@
 				Sets the parameters to use with the auto-exposure effect. These parameters take on the same meaning as their counterparts in [CameraAttributes] and [CameraAttributesPractical].
 			</description>
 		</method>
+		<method name="camera_attributes_set_auto_exposure_ev_adaptation">
+			<return type="void" />
+			<param index="0" name="camera_attributes" type="RID" />
+			<param index="1" name="enable" type="bool" />
+			<param index="2" name="bright_scene_speed" type="float" />
+			<param index="3" name="dark_scene_speed" type="float" />
+			<description>
+				Sets whether Forward+ auto exposure adapts in exposure stops using separate rates for a brightening and a darkening scene. The rates are measured in stops per second. Enable auto exposure independently with [method camera_attributes_set_auto_exposure].
+			</description>
+		</method>
 		<method name="camera_attributes_set_dof_blur">
 			<return type="void" />
 			<param index="0" name="camera_attributes" type="RID" />
@@ -1221,6 +1231,22 @@
 				Sets the normal [param fade] in the decal specified by the [param decal] RID. Equivalent to [member Decal.normal_fade].
 			</description>
 		</method>
+		<method name="decal_set_orm_channels">
+			<return type="void" />
+			<param index="0" name="decal" type="RID" />
+			<param index="1" name="channels" type="int" enum="RenderingServer.DecalORMChannel" is_bitfield="true" />
+			<description>
+				Selects the packed ORM channels affected by the decal specified by the [param decal] RID. Equivalent to [member Decal.orm_channels].
+			</description>
+		</method>
+		<method name="decal_set_roughness_affects_ssr">
+			<return type="void" />
+			<param index="0" name="decal" type="RID" />
+			<param index="1" name="enabled" type="bool" />
+			<description>
+				Enables decal roughness in the Forward+ screen-space reflection prepass for the [param decal] RID. Equivalent to [member Decal.roughness_affects_ssr].
+			</description>
+		</method>
 		<method name="decal_set_size">
 			<return type="void" />
 			<param index="0" name="decal" type="RID" />
@@ -1389,6 +1415,16 @@
 				Configures fog depth for the specified environment RID. Only has an effect when the fog mode of the environment is [constant ENV_FOG_MODE_DEPTH]. See [code]fog_depth_*[/code] properties in [Environment] for more information.
 			</description>
 		</method>
+		<method name="environment_set_fog_height_integrated">
+			<return type="void" />
+			<param index="0" name="env" type="RID" />
+			<param index="1" name="enabled" type="bool" />
+			<param index="2" name="falloff" type="float" />
+			<param index="3" name="start_distance" type="float" />
+			<description>
+				Configures ray-integrated exponential height fog for an environment in Forward+. See [member Environment.fog_height_integrated].
+			</description>
+		</method>
 		<method name="environment_set_glow">
 			<return type="void" />
 			<param index="0" name="env" type="RID" />
@@ -1423,6 +1459,15 @@
 			<param index="10" name="probe_bias" type="float" />
 			<description>
 				Configures signed distance field global illumination for the specified environment RID. See [code]sdfgi_*[/code] properties in [Environment] for more information.
+			</description>
+		</method>
+		<method name="environment_set_sdfgi_contact_refinement">
+			<return type="void" />
+			<param index="0" name="env" type="RID" />
+			<param index="1" name="radius" type="float" />
+			<param index="2" name="strength" type="float" />
+			<description>
+				Sets the radius and blend weight for the environment's local SDFGI refinement. See [member Environment.sdfgi_contact_refinement_radius] and [member Environment.sdfgi_contact_refinement_strength].
 			</description>
 		</method>
 		<method name="environment_set_sdfgi_frames_to_converge">
@@ -1468,6 +1513,14 @@
 			<param index="1" name="orientation" type="Basis" />
 			<description>
 				Sets the rotation of the background [Sky] expressed as a [Basis]. Equivalent to [member Environment.sky_rotation], where the rotation vector is used to construct the [Basis].
+			</description>
+		</method>
+		<method name="environment_set_sdfgi_world_space_irradiance">
+			<return type="void" />
+			<param index="0" name="env" type="RID" />
+			<param index="1" name="enabled" type="bool" />
+			<description>
+				Sets whether SDFGI integrates probe lighting in world space. See [member Environment.sdfgi_world_space_irradiance].
 			</description>
 		</method>
 		<method name="environment_set_ssao">
@@ -1950,6 +2003,16 @@
 				Sets a material that will override the material for all surfaces on the mesh associated with this instance. Equivalent to [member GeometryInstance3D.material_override].
 			</description>
 		</method>
+		<method name="instance_geometry_set_render_after_dof">
+			<return type="void" />
+			<param index="0" name="instance" type="RID" />
+			<param index="1" name="enabled" type="bool" />
+			<description>
+				Opts the instance into rendering compatible transparent surfaces after temporal antialiasing and depth of field. Disabled by default.
+				The surface must disable depth testing and writes. It can still sample opaque depth for its own occlusion. Stencil, alpha-to-coverage, subsurface scattering, and screen-color mipmaps are unsupported in this pass.
+				Available in Forward+ at native resolution with one view and an opaque viewport background. Other paths and unsupported surfaces use ordinary rendering.
+			</description>
+		</method>
 		<method name="instance_geometry_set_shader_parameter">
 			<return type="void" />
 			<param index="0" name="instance" type="RID" />
@@ -1980,6 +2043,13 @@
 			<param index="5" name="fade_mode" type="int" enum="RenderingServer.VisibilityRangeFadeMode" />
 			<description>
 				Sets the visibility range values for the given geometry instance. Equivalent to [member GeometryInstance3D.visibility_range_begin] and related properties.
+			</description>
+		</method>
+		<method name="instance_invalidate_sdfgi">
+			<return type="void" />
+			<param index="0" name="instance" type="RID" />
+			<description>
+				Refreshes SDFGI geometry in the cascades overlapping this static GI instance. Call this after changing a shader parameter that affects the instance's vertex positions or voxelized material. Use [member GeometryInstance3D.extra_cull_margin] or [member GeometryInstance3D.custom_aabb] to cover shader displacement. Requires Forward+ with SDFGI enabled. Keep calls infrequent because revoxelizing a cascade is expensive.
 			</description>
 		</method>
 		<method name="instance_set_base">
@@ -5173,7 +5243,10 @@
 		<constant name="LIGHT_PARAM_CONTACT_SHADOW_BLUR" value="21" enum="LightParam">
 			Blurs the edges of the contact shadow. [code]0.0[/code] produces sharp shadows; higher values increase the noise magnitude.
 		</constant>
-		<constant name="LIGHT_PARAM_MAX" value="22" enum="LightParam">
+		<constant name="LIGHT_PARAM_DIRECTIONAL_PROJECTOR_SIZE" value="22" enum="LightParam">
+			The width of the directional projector. See [member DirectionalLight3D.directional_projector_size].
+		</constant>
+		<constant name="LIGHT_PARAM_MAX" value="23" enum="LightParam">
 			Represents the size of the [enum LightParam] enum.
 		</constant>
 		<constant name="LIGHT_BAKE_DISABLED" value="0" enum="LightBakeMode">
@@ -5260,6 +5333,18 @@
 		</constant>
 		<constant name="DECAL_TEXTURE_MAX" value="4" enum="DecalTexture">
 			Represents the size of the [enum DecalTexture] enum.
+		</constant>
+		<constant name="DECAL_ORM_CHANNEL_AO" value="1" enum="DecalORMChannel" is_bitfield="true">
+			Blend ambient occlusion using the red ORM texture channel.
+		</constant>
+		<constant name="DECAL_ORM_CHANNEL_ROUGHNESS" value="2" enum="DecalORMChannel" is_bitfield="true">
+			Blend roughness using the green ORM texture channel.
+		</constant>
+		<constant name="DECAL_ORM_CHANNEL_METALLIC" value="4" enum="DecalORMChannel" is_bitfield="true">
+			Blend metallic using the blue ORM texture channel.
+		</constant>
+		<constant name="DECAL_ORM_CHANNEL_ALL" value="7" enum="DecalORMChannel" is_bitfield="true">
+			Blend all three packed ORM texture channels.
 		</constant>
 		<constant name="DECAL_FILTER_NEAREST" value="0" enum="DecalFilter">
 			Nearest-neighbor filter for decals (use for pixel art decals). No mipmaps are used for rendering, which means decals at a distance will look sharp but grainy. This has roughly the same performance cost as using mipmaps.

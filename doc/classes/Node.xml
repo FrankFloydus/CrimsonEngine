@@ -1045,6 +1045,14 @@
 		<member name="editor_description" type="String" setter="set_editor_description" getter="get_editor_description" default="&quot;&quot;">
 			An optional description to the node. It will be displayed as a tooltip when hovering over the node in the editor's Scene dock.
 		</member>
+		<member name="inspector_exposed_in_scene" type="bool" setter="set_inspector_exposed_in_scene" getter="is_inspector_exposed_in_scene" default="false">
+			If [code]true[/code], embeds this node's native Inspector controls in its owning scene root's Inspector. Select an internal node in a reusable scene and enable this option once to expose it on each instance root. This option is hidden for ownerless nodes, including the scene root itself.
+			This is an editor convenience property backed by [member inspector_exposed_nodes] on [member owner], not a separately stored child flag. Changes use normal editor undo. Disabling it hides the embedded controls while preserving existing instance property overrides. Nodes inside a nested scene are exposed to that nested scene's root, rather than to every ancestor scene root.
+		</member>
+		<member name="inspector_exposed_nodes" type="NodePath[]" setter="set_inspector_exposed_nodes" getter="get_inspector_exposed_nodes" default="[]">
+			Advanced explicit paths to descendant nodes whose native Inspector controls are embedded in this node's Inspector. For normal child authoring, use [member inspector_exposed_in_scene] on the child instead. This list is authored on the reusable scene root and requires neither Editable Children nor script property forwarding. Paths are relative to this node; missing paths, absolute paths, property subnames, and paths to this node or its ancestors are ignored and produce a configuration warning.
+			Edits target the original child properties and are saved as ordinary scene instance overrides. Removing a path hides its controls but retains existing property overrides. Resources retain their normal sharing rules; use [member Resource.resource_local_to_scene] or Make Unique when each instance needs its own resource values. Animation keying is unavailable in the embedded child Inspector; use the child's Inspector to author animation tracks.
+		</member>
 		<member name="multiplayer" type="MultiplayerAPI" setter="" getter="get_multiplayer">
 			The [MultiplayerAPI] instance associated with this node. See [method SceneTree.get_multiplayer].
 			[b]Note:[/b] Renaming the node, or moving it in the tree, will not move the [MultiplayerAPI] to the new path, you will have to update this manually.

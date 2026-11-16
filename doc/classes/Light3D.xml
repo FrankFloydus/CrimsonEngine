@@ -90,8 +90,8 @@
 			If [code]true[/code], the light's effect is reversed, darkening areas and casting bright shadows.
 		</member>
 		<member name="light_projector" type="Texture2D" setter="set_projector" getter="get_projector" keywords="cookie, gobo">
-			[Texture2D] projected by light. [member shadow_enabled] must be on for the projector to work. Light projectors make the light appear as if it is shining through a colored but transparent object, almost like light shining through stained-glass.
-			[b]Note:[/b] Unlike [BaseMaterial3D] whose filter mode can be adjusted on a per-material basis, the filter mode for light projector textures is set globally with [member ProjectSettings.rendering/textures/light_projectors/filter].
+			[Texture2D] projected by the light. Light projectors make the light appear as if it is shining through stained glass. [OmniLight3D] and [SpotLight3D] require [member shadow_enabled]. [DirectionalLight3D] uses [member DirectionalLight3D.directional_projector_size] and supports projectors in Forward+ regardless of [member shadow_enabled].
+			The filter mode for omni and spot projectors is set globally with [member ProjectSettings.rendering/textures/light_projectors/filter]. Directional projectors use linear filtering.
 			[b]Note:[/b] Light projector textures are only supported in the Forward+ and Mobile rendering methods, not Compatibility.
 		</member>
 		<member name="light_size" type="float" setter="set_param" getter="get_param" default="0.0" keywords="pcss">
@@ -207,7 +207,10 @@
 		<constant name="PARAM_CONTACT_SHADOW_BLUR" value="21" enum="Param">
 			Constant for accessing [member shadow_contact_shadows_blur].
 		</constant>
-		<constant name="PARAM_MAX" value="22" enum="Param">
+		<constant name="PARAM_DIRECTIONAL_PROJECTOR_SIZE" value="22" enum="Param">
+			The width of the directional projector. See [member DirectionalLight3D.directional_projector_size].
+		</constant>
+		<constant name="PARAM_MAX" value="23" enum="Param">
 			Represents the size of the [enum Param] enum.
 		</constant>
 		<constant name="BAKE_DISABLED" value="0" enum="BakeMode">

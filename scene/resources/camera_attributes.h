@@ -38,6 +38,11 @@ class CameraAttributes : public Resource {
 
 private:
 	RID camera_attributes;
+	bool auto_exposure_use_ev_adaptation = false;
+	float auto_exposure_bright_scene_speed = 1.0f;
+	float auto_exposure_dark_scene_speed = 2.0f;
+
+	void _update_auto_exposure_ev_adaptation();
 
 protected:
 	static void _bind_methods();
@@ -69,6 +74,12 @@ public:
 	float get_auto_exposure_speed() const;
 	void set_auto_exposure_scale(float p_auto_exposure_scale);
 	float get_auto_exposure_scale() const;
+	void set_auto_exposure_use_ev_adaptation(bool p_enabled);
+	bool is_auto_exposure_using_ev_adaptation() const;
+	void set_auto_exposure_bright_scene_speed(float p_speed);
+	float get_auto_exposure_bright_scene_speed() const;
+	void set_auto_exposure_dark_scene_speed(float p_speed);
+	float get_auto_exposure_dark_scene_speed() const;
 
 	CameraAttributes();
 	~CameraAttributes();

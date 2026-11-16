@@ -420,6 +420,7 @@ void GI::SDFGI::create(RID p_env, const Vector3 &p_world_position, uint32_t p_re
 	min_cell_size = RendererSceneRenderRD::get_singleton()->environment_get_sdfgi_min_cell_size(p_env);
 	uses_occlusion = RendererSceneRenderRD::get_singleton()->environment_get_sdfgi_use_occlusion(p_env);
 	y_scale_mode = RendererSceneRenderRD::get_singleton()->environment_get_sdfgi_y_scale(p_env);
+	world_space_irradiance = RendererSceneRenderRD::get_singleton()->environment_get_sdfgi_world_space_irradiance(p_env);
 	static const float y_scale[3] = { 2.0, 1.5, 1.0 };
 	y_mult = y_scale[y_scale_mode];
 	version = gi->sdfgi_current_version;
@@ -1333,7 +1334,7 @@ void GI::SDFGI::update_probes(RID p_env, SkyRD::Sky *p_sky) {
 	push_constant.sky_irradiance_border_size[1] = 1.0 - sky_irradiance_border_size * 2.0f;
 
 	RID sky_uniform_set = gi->sdfgi_shader.integrate_default_sky_uniform_set;
-	push_constant.sky_flags = 0;
+	push_constant.sky_flags = world_space_irradiance ? SDFGIShader::IntegratePushConstant::SKY_FLAGS_WORLD_SPACE_IRRADIANCE : 0;
 	push_constant.y_mult = y_mult;
 
 	if (reads_sky && p_env.is_valid()) {
@@ -1431,7 +1432,7 @@ void GI::SDFGI::store_probes() {
 	push_constant.image_size[1] = probe_axis_count;
 	push_constant.store_ambient_texture = false;
 
-	push_constant.sky_flags = 0;
+	push_constant.sky_flags = world_space_irradiance ? SDFGIShader::IntegratePushConstant::SKY_FLAGS_WORLD_SPACE_IRRADIANCE : 0;
 	push_constant.y_mult = y_mult;
 
 	// Then store values into the lightprobe texture. Separating these steps has a small performance hit, but it allows for multiple bounces
@@ -1457,6 +1458,40 @@ void GI::SDFGI::store_probes() {
 	RD::get_singleton()->draw_command_end_label();
 }
 
+AABB GI::SDFGI::get_cascade_bounds(const Cascade &p_cascade) const {
+	const Vector3 world_scale = Vector3(1.0, 1.0 / y_mult, 1.0) * p_cascade.cell_size;
+	const Vector3i from = p_cascade.position - Vector3i(1, 1, 1) * int32_t(cascade_size >> 1);
+	return AABB(Vector3(from) * world_scale, Vector3(1, 1, 1) * cascade_size * world_scale);
+}
+
+void GI::SDFGI::apply_geometry_changes(const RendererSceneRender::SDFGIGeometryChanges &p_changes) {
+	const uint64_t end_revision = p_changes.revision;
+	if (geometry_revision == end_revision) {
+		return;
+	}
+
+	constexpr uint64_t max_regions = RendererSceneRender::SDFGIGeometryChanges::MAX_REGIONS;
+	const bool history_lost = end_revision - geometry_revision > max_regions;
+	for (Cascade &cascade : cascades) {
+		if (history_lost) {
+			cascade.dirty_regions = Cascade::DIRTY_ALL;
+			continue;
+		}
+		if (cascade.dirty_regions == Cascade::DIRTY_ALL) {
+			continue;
+		}
+		const AABB bounds = get_cascade_bounds(cascade);
+		for (uint64_t revision = geometry_revision; revision != end_revision; revision++) {
+			if (bounds.intersects_inclusive(p_changes.regions[revision % max_regions])) {
+				// The existing preprocessing pass rebuilds distances across the whole cascade.
+				cascade.dirty_regions = Cascade::DIRTY_ALL;
+				break;
+			}
+		}
+	}
+	geometry_revision = end_revision;
+}
+
 int GI::SDFGI::get_pending_region_data(int p_region, Vector3i &r_local_offset, Vector3i &r_local_size, AABB &r_bounds) const {
 	int dirty_count = 0;
 	for (uint32_t i = 0; i < cascades.size(); i++) {
@@ -1467,8 +1502,7 @@ int GI::SDFGI::get_pending_region_data(int p_region, Vector3i &r_local_offset, V
 				r_local_offset = Vector3i();
 				r_local_size = Vector3i(1, 1, 1) * cascade_size;
 
-				r_bounds.position = Vector3((Vector3i(1, 1, 1) * -int32_t(cascade_size >> 1) + c.position)) * c.cell_size * Vector3(1, 1.0 / y_mult, 1);
-				r_bounds.size = Vector3(r_local_size) * c.cell_size * Vector3(1, 1.0 / y_mult, 1);
+				r_bounds = get_cascade_bounds(c);
 				return i;
 			}
 			dirty_count++;
@@ -1835,6 +1869,10 @@ void GI::SDFGI::pre_process_gi(const Transform3D &p_transform, RenderDataRD *p_r
 
 	SDFGIData sdfgi_data;
 
+	contact_refinement = RendererSceneRenderRD::get_singleton()->environment_get_sdfgi_contact_refinement(p_render_data->environment);
+	sdfgi_data.contact_refinement_radius = contact_refinement.x;
+	sdfgi_data.contact_refinement_strength = contact_refinement.y;
+
 	sdfgi_data.grid_size[0] = cascade_size;
 	sdfgi_data.grid_size[1] = cascade_size;
 	sdfgi_data.grid_size[2] = cascade_size;
@@ -2155,7 +2193,7 @@ void GI::SDFGI::render_region(Ref<RenderSceneBuffersRD> p_render_buffers, int p_
 				ipush_constant.history_size = history_size;
 				ipush_constant.ray_count = 0;
 				ipush_constant.ray_bias = 0;
-				ipush_constant.sky_flags = 0;
+				ipush_constant.sky_flags = world_space_irradiance ? SDFGIShader::IntegratePushConstant::SKY_FLAGS_WORLD_SPACE_IRRADIANCE : 0;
 				ipush_constant.sky_energy = 0;
 				ipush_constant.sky_color_or_orientation[0] = 0;
 				ipush_constant.sky_color_or_orientation[1] = 0;
@@ -3754,15 +3792,23 @@ void GI::init(SkyRD *p_sky) {
 			sc.constant_id = 2; // SHADER_SPECIALIZATION_USE_VRS
 			sc.bool_value = false;
 			specialization_constants.push_back(sc);
+
+			sc.constant_id = 3; // SHADER_SPECIALIZATION_CONTACT_REFINEMENT
+			sc.bool_value = false;
+			specialization_constants.push_back(sc);
 		}
 
 		for (int v = 0; v < SHADER_SPECIALIZATION_VARIATIONS; v++) {
 			specialization_constants.ptrw()[0].bool_value = (v & SHADER_SPECIALIZATION_HALF_RES) ? true : false;
 			specialization_constants.ptrw()[1].bool_value = (v & SHADER_SPECIALIZATION_USE_FULL_PROJECTION_MATRIX) ? true : false;
 			specialization_constants.ptrw()[2].bool_value = (v & SHADER_SPECIALIZATION_USE_VRS) ? true : false;
+			specialization_constants.ptrw()[3].bool_value = (v & SHADER_SPECIALIZATION_CONTACT_REFINEMENT) != 0;
 
 			int variant_base = vrs_supported ? MODE_MAX : 0;
 			for (int i = 0; i < MODE_MAX; i++) {
+				if ((v & SHADER_SPECIALIZATION_CONTACT_REFINEMENT) && (i == MODE_VOXEL_GI || i == MODE_VOXEL_GI_WITHOUT_SAMPLER)) {
+					continue;
+				}
 				pipelines[v][i].create_compute_pipeline(shader.version_get_shader(shader_version, variant_base + i), specialization_constants);
 			}
 		}
@@ -4064,6 +4110,9 @@ void GI::process_gi(Ref<RenderSceneBuffersRD> p_render_buffers, const RID *p_nor
 	}
 
 	uint32_t pipeline_specialization = 0;
+	if (use_sdfgi && !sdfgi->uses_occlusion && sdfgi->contact_refinement.x > 0.0f && sdfgi->contact_refinement.y > 0.0f) {
+		pipeline_specialization |= SHADER_SPECIALIZATION_CONTACT_REFINEMENT;
+	}
 	if (rbgi->using_half_size_gi) {
 		pipeline_specialization |= SHADER_SPECIALIZATION_HALF_RES;
 	}

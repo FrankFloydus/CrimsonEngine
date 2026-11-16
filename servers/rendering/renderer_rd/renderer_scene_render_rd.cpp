@@ -452,7 +452,7 @@ void RendererSceneRenderRD::_render_buffers_copy_depth_texture(const RenderDataR
 	RD::get_singleton()->draw_command_end_label();
 }
 
-void RendererSceneRenderRD::_render_buffers_post_process_and_tonemap(const RenderDataRD *p_render_data, bool p_use_msaa) {
+void RendererSceneRenderRD::_render_buffers_post_process_and_tonemap(const RenderDataRD *p_render_data, bool p_use_msaa, const std::function<void(RID)> &p_before_glow) {
 	RendererRD::TextureStorage *texture_storage = RendererRD::TextureStorage::get_singleton();
 
 	ERR_FAIL_NULL(p_render_data);
@@ -567,7 +567,13 @@ void RendererSceneRenderRD::_render_buffers_post_process_and_tonemap(const Rende
 		double step = RSG::camera_attributes->camera_attributes_get_auto_exposure_adjust_speed(p_render_data->camera_attributes) * time_step;
 		float auto_exposure_min_sensitivity = RSG::camera_attributes->camera_attributes_get_auto_exposure_min_sensitivity(p_render_data->camera_attributes);
 		float auto_exposure_max_sensitivity = RSG::camera_attributes->camera_attributes_get_auto_exposure_max_sensitivity(p_render_data->camera_attributes);
-		luminance->luminance_reduction(rb->get_internal_texture(0), rb->get_internal_size(), luminance_buffers, auto_exposure_min_sensitivity, auto_exposure_max_sensitivity, step, set_immediate);
+		float bright_scene_speed = 0.0f;
+		float dark_scene_speed = 0.0f;
+		bool use_ev_adaptation = can_use_storage && RSG::camera_attributes->camera_attributes_get_auto_exposure_ev_adaptation(p_render_data->camera_attributes, bright_scene_speed, dark_scene_speed);
+		float exposure_delta = MAX(time_step, 0.0);
+		luminance->luminance_reduction(rb->get_internal_texture(0), rb->get_internal_size(), luminance_buffers,
+				auto_exposure_min_sensitivity, auto_exposure_max_sensitivity, step, set_immediate, use_ev_adaptation,
+				bright_scene_speed * exposure_delta, dark_scene_speed * exposure_delta);
 
 		// Swap final reduce with prev luminance.
 
@@ -575,6 +581,10 @@ void RendererSceneRenderRD::_render_buffers_post_process_and_tonemap(const Rende
 
 		RenderingServerDefault::redraw_request(); // Redraw all the time if auto exposure rendering is on.
 		RD::get_singleton()->draw_command_end_label();
+	}
+
+	if (p_before_glow) {
+		p_before_glow(color_texture);
 	}
 
 	if (can_use_effects && p_render_data->environment.is_valid() && environment_get_glow_enabled(p_render_data->environment)) {

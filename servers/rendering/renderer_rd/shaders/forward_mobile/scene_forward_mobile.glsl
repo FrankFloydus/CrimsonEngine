@@ -1537,16 +1537,23 @@ void main() {
 				normal = hvec3(normalize(mix(vec3(normal), decal_normal, decal_albedo.a)));
 			}
 
-			if (decals.data[decal_index].orm_rect != vec4(0.0)) {
+			uint orm_channels = decals.data[decal_index].orm_channels;
+			if (orm_channels != 0u && decals.data[decal_index].orm_rect != vec4(0.0)) {
 				vec3 decal_orm;
 				if (sc_decal_use_mipmaps()) {
 					decal_orm = textureGrad(sampler2D(decal_atlas, decal_sampler), uv_local.xz * decals.data[decal_index].orm_rect.zw + decals.data[decal_index].orm_rect.xy, ddx * decals.data[decal_index].orm_rect.zw, ddy * decals.data[decal_index].orm_rect.zw).xyz;
 				} else {
 					decal_orm = textureLod(sampler2D(decal_atlas, decal_sampler), uv_local.xz * decals.data[decal_index].orm_rect.zw + decals.data[decal_index].orm_rect.xy, 0.0).xyz;
 				}
-				ao = half(mix(float(ao), decal_orm.r, decal_albedo.a));
-				roughness = half(mix(float(roughness), decal_orm.g, decal_albedo.a));
-				metallic = half(mix(float(metallic), decal_orm.b, decal_albedo.a));
+				if ((orm_channels & DECAL_ORM_CHANNEL_AO) != 0u) {
+					ao = half(mix(float(ao), decal_orm.r, decal_albedo.a));
+				}
+				if ((orm_channels & DECAL_ORM_CHANNEL_ROUGHNESS) != 0u) {
+					roughness = half(mix(float(roughness), decal_orm.g, decal_albedo.a));
+				}
+				if ((orm_channels & DECAL_ORM_CHANNEL_METALLIC) != 0u) {
+					metallic = half(mix(float(metallic), decal_orm.b, decal_albedo.a));
+				}
 			}
 		}
 

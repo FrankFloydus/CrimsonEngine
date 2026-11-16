@@ -99,6 +99,8 @@ private:
 		float fog_sky_affect = 1.0;
 		float fog_height = 0.0;
 		float fog_height_density = 0.0; //can be negative to invert effect
+		bool fog_height_integrated = false;
+		Vector2 fog_height_integration;
 		float fog_aerial_perspective = 0.0;
 
 		// Depth Fog
@@ -170,6 +172,8 @@ private:
 		float sdfgi_energy = 1.0;
 		float sdfgi_normal_bias = 1.1;
 		float sdfgi_probe_bias = 1.1;
+		Vector2 sdfgi_contact_refinement = Vector2(0.0f, 1.0f);
+		bool sdfgi_world_space_irradiance = false;
 		RSE::EnvironmentSDFGIYScale sdfgi_y_scale = RSE::ENV_SDFGI_Y_SCALE_75_PERCENT;
 
 		// Adjustments
@@ -248,6 +252,8 @@ public:
 
 	// Depth Fog
 	void environment_set_fog_depth(RID p_env, float p_curve, float p_begin, float p_end);
+	void environment_set_fog_height_integrated(RID p_env, bool p_enabled, float p_falloff, float p_start_distance);
+	Vector2 environment_get_fog_height_integration(RID p_env) const;
 	float environment_get_fog_depth_curve(RID p_env) const;
 	float environment_get_fog_depth_begin(RID p_env) const;
 	float environment_get_fog_depth_end(RID p_env) const;
@@ -313,6 +319,10 @@ public:
 
 	// SDFGI
 	void environment_set_sdfgi(RID p_env, bool p_enable, int p_cascades, float p_min_cell_size, RSE::EnvironmentSDFGIYScale p_y_scale, bool p_use_occlusion, float p_bounce_feedback, bool p_read_sky, float p_energy, float p_normal_bias, float p_probe_bias);
+	void environment_set_sdfgi_contact_refinement(RID p_env, float p_radius, float p_strength);
+	Vector2 environment_get_sdfgi_contact_refinement(RID p_env) const;
+	void environment_set_sdfgi_world_space_irradiance(RID p_env, bool p_enabled);
+	bool environment_get_sdfgi_world_space_irradiance(RID p_env) const;
 	bool environment_get_sdfgi_enabled(RID p_env) const;
 	int environment_get_sdfgi_cascades(RID p_env) const;
 	float environment_get_sdfgi_min_cell_size(RID p_env) const;

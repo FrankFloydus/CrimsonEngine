@@ -2589,6 +2589,7 @@ void RenderingServer::_bind_methods() {
 	BIND_ENUM_CONSTANT(RSE::LIGHT_PARAM_TRANSMITTANCE_BIAS);
 	BIND_ENUM_CONSTANT(RSE::LIGHT_PARAM_INTENSITY);
 	BIND_ENUM_CONSTANT(RSE::LIGHT_PARAM_CONTACT_SHADOW_BLUR);
+	BIND_ENUM_CONSTANT(RSE::LIGHT_PARAM_DIRECTIONAL_PROJECTOR_SIZE);
 	BIND_ENUM_CONSTANT(RSE::LIGHT_PARAM_MAX);
 
 	BIND_ENUM_CONSTANT(RSE::LIGHT_BAKE_DISABLED);
@@ -2652,6 +2653,8 @@ void RenderingServer::_bind_methods() {
 	ClassDB::bind_method(D_METHOD("decal_set_texture", "decal", "type", "texture"), &RenderingServer::decal_set_texture);
 	ClassDB::bind_method(D_METHOD("decal_set_emission_energy", "decal", "energy"), &RenderingServer::decal_set_emission_energy);
 	ClassDB::bind_method(D_METHOD("decal_set_albedo_mix", "decal", "albedo_mix"), &RenderingServer::decal_set_albedo_mix);
+	ClassDB::bind_method(D_METHOD("decal_set_orm_channels", "decal", "channels"), &RenderingServer::decal_set_orm_channels);
+	ClassDB::bind_method(D_METHOD("decal_set_roughness_affects_ssr", "decal", "enabled"), &RenderingServer::decal_set_roughness_affects_ssr);
 	ClassDB::bind_method(D_METHOD("decal_set_modulate", "decal", "color"), &RenderingServer::decal_set_modulate);
 	ClassDB::bind_method(D_METHOD("decal_set_cull_mask", "decal", "mask"), &RenderingServer::decal_set_cull_mask);
 	ClassDB::bind_method(D_METHOD("decal_set_distance_fade", "decal", "enabled", "begin", "length"), &RenderingServer::decal_set_distance_fade);
@@ -2665,6 +2668,11 @@ void RenderingServer::_bind_methods() {
 	BIND_ENUM_CONSTANT(RSE::DECAL_TEXTURE_ORM);
 	BIND_ENUM_CONSTANT(RSE::DECAL_TEXTURE_EMISSION);
 	BIND_ENUM_CONSTANT(RSE::DECAL_TEXTURE_MAX);
+
+	BIND_BITFIELD_FLAG(RSE::DECAL_ORM_CHANNEL_AO);
+	BIND_BITFIELD_FLAG(RSE::DECAL_ORM_CHANNEL_ROUGHNESS);
+	BIND_BITFIELD_FLAG(RSE::DECAL_ORM_CHANNEL_METALLIC);
+	BIND_BITFIELD_FLAG(RSE::DECAL_ORM_CHANNEL_ALL);
 
 	BIND_ENUM_CONSTANT(RSE::DECAL_FILTER_NEAREST);
 	BIND_ENUM_CONSTANT(RSE::DECAL_FILTER_LINEAR);
@@ -3091,7 +3099,10 @@ void RenderingServer::_bind_methods() {
 	ClassDB::bind_method(D_METHOD("environment_set_ssao", "env", "enable", "radius", "intensity", "power", "detail", "horizon", "sharpness", "light_affect", "ao_channel_affect"), &RenderingServer::environment_set_ssao);
 	ClassDB::bind_method(D_METHOD("environment_set_fog", "env", "enable", "light_color", "light_energy", "sun_scatter", "density", "height", "height_density", "aerial_perspective", "sky_affect", "fog_mode"), &RenderingServer::environment_set_fog, DEFVAL(RSE::ENV_FOG_MODE_EXPONENTIAL));
 	ClassDB::bind_method(D_METHOD("environment_set_fog_depth", "env", "curve", "begin", "end"), &RenderingServer::environment_set_fog_depth);
+	ClassDB::bind_method(D_METHOD("environment_set_fog_height_integrated", "env", "enabled", "falloff", "start_distance"), &RenderingServer::environment_set_fog_height_integrated);
 	ClassDB::bind_method(D_METHOD("environment_set_sdfgi", "env", "enable", "cascades", "min_cell_size", "y_scale", "use_occlusion", "bounce_feedback", "read_sky", "energy", "normal_bias", "probe_bias"), &RenderingServer::environment_set_sdfgi);
+	ClassDB::bind_method(D_METHOD("environment_set_sdfgi_contact_refinement", "env", "radius", "strength"), &RenderingServer::environment_set_sdfgi_contact_refinement);
+	ClassDB::bind_method(D_METHOD("environment_set_sdfgi_world_space_irradiance", "env", "enabled"), &RenderingServer::environment_set_sdfgi_world_space_irradiance);
 	ClassDB::bind_method(D_METHOD("environment_set_volumetric_fog", "env", "enable", "density", "albedo", "emission", "emission_energy", "anisotropy", "length", "detail_spread", "gi_inject", "temporal_reprojection", "temporal_reprojection_amount", "ambient_inject", "sky_affect"), &RenderingServer::environment_set_volumetric_fog);
 
 	ClassDB::bind_method(D_METHOD("environment_glow_set_use_bicubic_upscale", "enable"), &RenderingServer::environment_glow_set_use_bicubic_upscale);
@@ -3203,6 +3214,7 @@ void RenderingServer::_bind_methods() {
 	ClassDB::bind_method(D_METHOD("camera_attributes_set_dof_blur", "camera_attributes", "far_enable", "far_distance", "far_transition", "near_enable", "near_distance", "near_transition", "amount"), &RenderingServer::camera_attributes_set_dof_blur);
 	ClassDB::bind_method(D_METHOD("camera_attributes_set_exposure", "camera_attributes", "multiplier", "normalization"), &RenderingServer::camera_attributes_set_exposure);
 	ClassDB::bind_method(D_METHOD("camera_attributes_set_auto_exposure", "camera_attributes", "enable", "min_sensitivity", "max_sensitivity", "speed", "scale"), &RenderingServer::camera_attributes_set_auto_exposure);
+	ClassDB::bind_method(D_METHOD("camera_attributes_set_auto_exposure_ev_adaptation", "camera_attributes", "enable", "bright_scene_speed", "dark_scene_speed"), &RenderingServer::camera_attributes_set_auto_exposure_ev_adaptation);
 
 	BIND_ENUM_CONSTANT(RSE::DOF_BOKEH_BOX);
 	BIND_ENUM_CONSTANT(RSE::DOF_BOKEH_HEXAGON);
@@ -3235,6 +3247,7 @@ void RenderingServer::_bind_methods() {
 	ClassDB::bind_method(D_METHOD("instance_set_surface_override_material", "instance", "surface", "material"), &RenderingServer::instance_set_surface_override_material);
 	ClassDB::bind_method(D_METHOD("instance_set_visible", "instance", "visible"), &RenderingServer::instance_set_visible);
 	ClassDB::bind_method(D_METHOD("instance_geometry_set_transparency", "instance", "transparency"), &RenderingServer::instance_geometry_set_transparency);
+	ClassDB::bind_method(D_METHOD("instance_geometry_set_render_after_dof", "instance", "enabled"), &RenderingServer::instance_geometry_set_render_after_dof);
 
 	ClassDB::bind_method(D_METHOD("instance_teleport", "instance"), &RenderingServer::instance_teleport);
 
@@ -3254,6 +3267,7 @@ void RenderingServer::_bind_methods() {
 	ClassDB::bind_method(D_METHOD("instance_geometry_set_lod_bias", "instance", "lod_bias"), &RenderingServer::instance_geometry_set_lod_bias);
 
 	ClassDB::bind_method(D_METHOD("instance_geometry_set_shader_parameter", "instance", "parameter", "value"), &RenderingServer::instance_geometry_set_shader_parameter);
+	ClassDB::bind_method(D_METHOD("instance_invalidate_sdfgi", "instance"), &RenderingServer::instance_invalidate_sdfgi);
 	ClassDB::bind_method(D_METHOD("instance_geometry_get_shader_parameter", "instance", "parameter"), &RenderingServer::instance_geometry_get_shader_parameter);
 	ClassDB::bind_method(D_METHOD("instance_geometry_get_shader_parameter_default_value", "instance", "parameter"), &RenderingServer::instance_geometry_get_shader_parameter_default_value);
 	ClassDB::bind_method(D_METHOD("instance_geometry_get_shader_parameter_list", "instance"), &RenderingServer::_instance_geometry_get_shader_parameter_list);

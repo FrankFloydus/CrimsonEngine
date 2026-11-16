@@ -242,7 +242,7 @@ private:
 
 		bool clear = true;
 
-		bool force_sub_emit = false;
+		bool gpu_emission_pending = false;
 
 		Transform3D emission_transform;
 		Vector3 emitter_velocity;
@@ -252,7 +252,8 @@ private:
 		Vector<uint8_t> emission_buffer_data;
 
 		ParticleEmissionBuffer *emission_buffer = nullptr;
-		RID emission_storage_buffer;
+		RID cpu_emission_storage_buffer;
+		RID gpu_emission_storage_buffer;
 
 		RID unused_emission_storage_buffer;
 		RID unused_trail_storage_buffer;
@@ -273,7 +274,9 @@ private:
 	};
 
 	void _particles_process(Particles *p_particles, double p_delta);
-	void _particles_allocate_emission_buffer(Particles *particles);
+	void _particles_allocate_cpu_emission_buffer(Particles *p_particles);
+	void _particles_allocate_gpu_emission_buffer(Particles *p_particles);
+	void _particles_clear_gpu_emission(Particles *p_particles);
 	void _particles_ensure_unused_emission_buffer(Particles *particles);
 	void _particles_ensure_unused_trail_buffer(Particles *particles);
 	void _particles_free_data(Particles *particles);
@@ -287,7 +290,11 @@ private:
 			uint32_t trail_size;
 
 			uint32_t use_fractional_delta;
-			uint32_t sub_emitter_mode;
+			enum EmissionSource : uint32_t {
+				EMISSION_SOURCE_CPU = 1,
+				EMISSION_SOURCE_GPU = 2,
+			};
+			uint32_t emission_sources;
 			uint32_t can_emit;
 			uint32_t trail_pass;
 		};
