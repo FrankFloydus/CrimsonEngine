@@ -333,6 +333,11 @@ EditorThemeManager::ThemeConfiguration EditorThemeManager::_create_theme_config(
 			} else if (config.preset == "Breeze Dark") {
 				preset_accent_color = Color(0.239, 0.682, 0.914);
 				preset_base_color = Color(0.1255, 0.1373, 0.149);
+			} else if (config.is_crimson_preset()) {
+				preset_accent_color = Color::hex(0xf45d73ff);
+				preset_base_color = Color::hex(0x252126ff);
+				preset_contrast = 0.22;
+				preset_icon_saturation = 0.92;
 			} else if (config.preset == "Godot 2") {
 				preset_accent_color = Color(0.53, 0.67, 0.89);
 				preset_base_color = Color(0.24, 0.23, 0.27);
@@ -357,7 +362,7 @@ EditorThemeManager::ThemeConfiguration EditorThemeManager::_create_theme_config(
 				preset_accent_color = Color(0.15, 0.55, 0.82);
 				preset_base_color = Color(0.89, 0.86, 0.79);
 				preset_contrast = light_contrast;
-			} else { // Default
+			} else { // Godot
 				preset_accent_color = Color(0.337, 0.62, 1.0);
 				preset_base_color = Color(0.161, 0.161, 0.161);
 			}
@@ -563,6 +568,12 @@ void EditorThemeManager::_populate_text_editor_styles(const Ref<EditorTheme> &p_
 				colors["text_editor/theme/highlighting/comment_markers/critical_color"] = Color(0.8, 0.14, 0.14);
 				colors["text_editor/theme/highlighting/comment_markers/warning_color"] = Color(0.75, 0.39, 0.03);
 				colors["text_editor/theme/highlighting/comment_markers/notice_color"] = Color(0.24, 0.54, 0.09);
+			}
+			if (is_default_theme && p_config.dark_icon_and_font && p_config.is_crimson_preset()) {
+				const HashMap<StringName, Color> crimson_colors = EditorSettings::get_crimson_text_editor_theme();
+				for (const KeyValue<StringName, Color> &setting : crimson_colors) {
+					colors[setting.key] = setting.value;
+				}
 			}
 		} else if (is_godot2_theme) {
 			colors = EditorSettings::get_godot2_text_editor_theme();
