@@ -48,6 +48,18 @@ common_win_wrap = [
 
 env_wrap = env.Clone()
 
+editor_output_dir = (
+    Path(env.Dir("#").abspath).parent if env.editor_build and env["library_type"] == "executable" else None
+)
+editor_output_targets = []
+
+
+def publish_editor_file(source, relative_path):
+    if editor_output_dir is not None:
+        destination = editor_output_dir / relative_path
+        editor_output_targets.extend(env.CommandNoCache(str(destination), source, Copy("$TARGET", "$SOURCE")))
+
+
 if env["arch"] == "x86_64" and env["library_type"] == "executable":
     env_cpp_check = env.Clone()
     env_cpp_check.add_source_files(sources, ["cpu_feature_validation.c"])
@@ -94,6 +106,7 @@ elif env["library_type"] == "shared_library":
 else:
     prog = env.add_program("#bin/godot", sources, PROGSUFFIX=env["PROGSUFFIX"])
 arrange_program_clean(prog)
+publish_editor_file(prog[0], "CrimsonEngine.exe")
 
 env.Depends(prog, "godot.manifest")
 if env.msvc:
@@ -120,6 +133,7 @@ if env["windows_subsystem"] == "gui":
     prog_wrap = env_wrap.add_program("#bin/godot", common_win_wrap + res_wrap_obj, PROGSUFFIX=env["PROGSUFFIX_WRAP"])
     arrange_program_clean(prog_wrap)
     env_wrap.Depends(prog_wrap, prog)
+    publish_editor_file(prog_wrap[0], "CrimsonEngine.console.exe")
     sources += common_win_wrap + res_wrap_obj
 
 if env["d3d12"]:
@@ -148,25 +162,31 @@ if env["d3d12"]:
         # Whether these are loaded from arch-specific directory or not has to be known at build time.
         target_dir = arch_bin_dir if env["agility_sdk_multiarch"] else "#bin"
         for dll in agility_dlls:
-            env.CommandNoCache(
+            runtime_dll = env.CommandNoCache(
                 target_dir + "/" + dll,
                 env["agility_sdk_path"] + "/build/native/bin/" + agility_arch_subdir + "/" + dll,
                 Copy("$TARGET", "$SOURCE"),
             )
+            publish_editor_file(runtime_dll[0], Path(env["arch"], dll) if env["agility_sdk_multiarch"] else dll)
 
     # PIX
     if env["use_pix"]:
         pix_dll = "WinPixEventRuntime.dll"
-        env.CommandNoCache(
+        runtime_dll = env.CommandNoCache(
             "#bin/" + pix_dll,
             env["pix_path"] + "/bin/" + dxc_arch_subdir + "/" + pix_dll,
             Copy("$TARGET", "$SOURCE"),
         )
+        publish_editor_file(runtime_dll[0], pix_dll)
 
 if not env.msvc:
     if env["debug_symbols"]:
         env.AddPostAction(prog, env.Run(platform_windows_builders.make_debug_mingw))
         if env["windows_subsystem"] == "gui":
             env.AddPostAction(prog_wrap, env.Run(platform_windows_builders.make_debug_mingw))
+
+if editor_output_targets:
+    # Include outputs beside the repository alongside the usual in-repository targets.
+    env.Default(env.Dir("#"), editor_output_targets)
 
 env.platform_sources += sources

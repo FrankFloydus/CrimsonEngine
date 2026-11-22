@@ -157,7 +157,7 @@ void EngineUpdateLabel::_http_request_completed(int p_result, int p_response_cod
 
 	if (!available_newer_version.is_empty()) {
 		_set_status(UpdateStatus::UPDATE_AVAILABLE);
-		_set_message(TTRC("Update available: %s."), theme_cache.update_color, available_newer_version);
+		_set_message(TTRC("Godot upstream release available: %s."), theme_cache.update_color, available_newer_version);
 	} else if (available_newer_version.is_empty()) {
 		_set_status(UpdateStatus::UP_TO_DATE);
 	}
@@ -206,7 +206,7 @@ void EngineUpdateLabel::_set_status(UpdateStatus p_status) {
 		case UpdateStatus::UPDATE_AVAILABLE: {
 			set_disabled(false);
 			set_accessibility_live(AccessibilityServerEnums::AccessibilityLiveMode::LIVE_POLITE);
-			set_tooltip_text(TTR("Click to open download page."));
+			set_tooltip_text(TTR("Open the Godot release download page."));
 		} break;
 
 		default: {
