@@ -1989,29 +1989,25 @@ void EditorInspectorCategory::_notification(int p_what) {
 			if (icon.is_valid()) {
 				w += hs + icon_size;
 			}
-			const bool rtl = is_layout_rtl();
-			const bool leading_aligned = theme_cache.leading_margin > 0;
-			const float trailing_margin = sb->get_content_margin(rtl ? SIDE_LEFT : SIDE_RIGHT);
-			const float horizontal_margin = leading_aligned ? theme_cache.leading_margin + trailing_margin : sb->get_minimum_size().width;
-			w = CLAMP(w, 0, MAX(0, int(get_size().width - horizontal_margin)));
+			w = MIN(w, get_size().width - sb->get_minimum_size().width);
 
-			int ofs = leading_aligned ? theme_cache.leading_margin : (get_size().width - w) / 2;
+			int ofs = (get_size().width - w) / 2;
 
 			float v_margin_offset = sb->get_content_margin(SIDE_TOP) - sb->get_content_margin(SIDE_BOTTOM);
 
 			if (icon.is_valid()) {
 				Size2 rect_size = Size2(icon_size, icon_size);
 				Point2 rect_pos = Point2(ofs, (get_size().height - icon_size) / 2 + v_margin_offset).round();
-				if (rtl) {
+				if (is_layout_rtl()) {
 					rect_pos.x = get_size().width - rect_pos.x - icon_size;
 				}
 				draw_texture_rect(icon, Rect2(rect_pos, rect_size));
 
 				ofs += hs + icon_size;
-				w = MAX(0, w - hs - icon_size);
+				w -= hs + icon_size;
 			}
 
-			if (rtl) {
+			if (is_layout_rtl()) {
 				ofs = get_size().width - ofs - w;
 			}
 
@@ -2365,13 +2361,10 @@ void EditorInspectorSection::_notification(int p_what) {
 			Rect2 header_rect = Rect2(Vector2(header_offset_x, 0.0), Vector2(header_width, header_height));
 			Color c = bg_color;
 			c.a *= 0.4;
-			if (header_hover && theme_cache.header_hover.is_null()) {
+			if (header_hover) {
 				c = c.lightened(Input::get_singleton()->is_mouse_button_pressed(MouseButton::LEFT) ? -0.05 : 0.2);
 			}
 			draw_rect(header_rect, c);
-			if (header_hover && theme_cache.header_hover.is_valid()) {
-				draw_style_box(theme_cache.header_hover, header_rect);
-			}
 
 			// Draw header title, folding arrow and count of revertable properties.
 			{
@@ -4042,8 +4035,7 @@ void EditorInspector::initialize_section_theme(EditorInspectorSection::ThemeCach
 		return;
 	}
 
-	const StringName section_type = SNAME("EditorInspectorSection");
-	p_cache.horizontal_separation = p_control->get_theme_constant(SNAME("h_separation"), section_type);
+	p_cache.horizontal_separation = p_control->get_theme_constant(SNAME("h_separation"), SNAME("EditorInspectorSection"));
 	p_cache.vertical_separation = p_control->get_theme_constant(SNAME("separation"), SNAME("EditorPropertyContainer"));
 	p_cache.inspector_margin = p_control->get_theme_constant(SNAME("inspector_margin"), EditorStringName(Editor));
 	p_cache.indent_size = p_control->get_theme_constant(SNAME("indent_size"), SNAME("EditorInspectorSection"));
@@ -4051,7 +4043,7 @@ void EditorInspector::initialize_section_theme(EditorInspectorSection::ThemeCach
 
 	p_cache.warning_color = p_control->get_theme_color(SNAME("warning_color"), EditorStringName(Editor));
 	p_cache.prop_subsection = p_control->get_theme_color(SNAME("prop_subsection"), EditorStringName(Editor));
-	p_cache.font_color = p_control->get_theme_color(SceneStringName(font_color), p_control->has_theme_color(SceneStringName(font_color), section_type) ? section_type : EditorStringName(Editor));
+	p_cache.font_color = p_control->get_theme_color(SceneStringName(font_color), EditorStringName(Editor));
 	p_cache.font_disabled_color = p_control->get_theme_color(SNAME("font_disabled_color"), EditorStringName(Editor));
 	p_cache.font_hover_color = p_control->get_theme_color(SNAME("font_hover_color"), EditorStringName(Editor));
 	p_cache.font_pressed_color = p_control->get_theme_color(SNAME("font_pressed_color"), EditorStringName(Editor));
@@ -4060,8 +4052,8 @@ void EditorInspector::initialize_section_theme(EditorInspectorSection::ThemeCach
 
 	p_cache.font = p_control->get_theme_font(SceneStringName(font), SNAME("Tree"));
 	p_cache.font_size = p_control->get_theme_font_size(SceneStringName(font_size), SNAME("Tree"));
-	p_cache.bold_font = p_control->has_theme_font(SceneStringName(font), section_type) ? p_control->get_theme_font(SceneStringName(font), section_type) : p_control->get_theme_font(SNAME("bold"), EditorStringName(EditorFonts));
-	p_cache.bold_font_size = p_control->has_theme_font_size(SceneStringName(font_size), section_type) ? p_control->get_theme_font_size(SceneStringName(font_size), section_type) : p_control->get_theme_font_size(SNAME("bold_size"), EditorStringName(EditorFonts));
+	p_cache.bold_font = p_control->get_theme_font(SNAME("bold"), EditorStringName(EditorFonts));
+	p_cache.bold_font_size = p_control->get_theme_font_size(SNAME("bold_size"), EditorStringName(EditorFonts));
 	p_cache.light_font = p_control->get_theme_font(SNAME("main"), EditorStringName(EditorFonts));
 	p_cache.light_font_size = p_control->get_theme_font_size(SNAME("main_size"), EditorStringName(EditorFonts));
 
@@ -4077,8 +4069,7 @@ void EditorInspector::initialize_section_theme(EditorInspectorSection::ThemeCach
 	p_cache.icon_copy_path = p_control->get_editor_theme_icon(SNAME("CopyNodePath"));
 	p_cache.help_icon = p_control->get_editor_theme_icon(SNAME("Help"));
 
-	p_cache.indent_box = p_control->get_theme_stylebox(SNAME("indent_box"), section_type);
-	p_cache.header_hover = p_control->has_theme_stylebox(SceneStringName(hover), section_type) ? p_control->get_theme_stylebox(SceneStringName(hover), section_type) : Ref<StyleBox>();
+	p_cache.indent_box = p_control->get_theme_stylebox(SNAME("indent_box"), SNAME("EditorInspectorSection"));
 	p_cache.icon_hover = p_control->get_theme_stylebox(SceneStringName(hover), SceneStringName(FlatButton));
 }
 
@@ -4089,16 +4080,14 @@ void EditorInspector::initialize_category_theme(EditorInspectorCategory::ThemeCa
 		return;
 	}
 
-	const StringName category_type = SNAME("EditorInspectorCategory");
 	p_cache.horizontal_separation = p_control->get_theme_constant(SNAME("h_separation"), SNAME("Tree"));
 	p_cache.vertical_separation = p_control->get_theme_constant(SNAME("separation"), SNAME("EditorPropertyContainer"));
 	p_cache.class_icon_size = p_control->get_theme_constant(SNAME("class_icon_size"), EditorStringName(Editor));
-	p_cache.leading_margin = p_control->get_theme_constant(SNAME("leading_margin"), category_type);
 
-	p_cache.font_color = p_control->get_theme_color(SceneStringName(font_color), p_control->has_theme_color(SceneStringName(font_color), category_type) ? category_type : SNAME("Tree"));
+	p_cache.font_color = p_control->get_theme_color(SceneStringName(font_color), SNAME("Tree"));
 
-	p_cache.bold_font = p_control->has_theme_font(SceneStringName(font), category_type) ? p_control->get_theme_font(SceneStringName(font), category_type) : p_control->get_theme_font(SNAME("bold"), EditorStringName(EditorFonts));
-	p_cache.bold_font_size = p_control->has_theme_font_size(SceneStringName(font_size), category_type) ? p_control->get_theme_font_size(SceneStringName(font_size), category_type) : p_control->get_theme_font_size(SNAME("bold_size"), EditorStringName(EditorFonts));
+	p_cache.bold_font = p_control->get_theme_font(SNAME("bold"), EditorStringName(EditorFonts));
+	p_cache.bold_font_size = p_control->get_theme_font_size(SNAME("bold_size"), EditorStringName(EditorFonts));
 
 	p_cache.icon_copy = p_control->get_editor_theme_icon(SNAME("ActionCopy"));
 	p_cache.icon_paste = p_control->get_editor_theme_icon(SNAME("ActionPaste"));
@@ -4107,7 +4096,7 @@ void EditorInspector::initialize_category_theme(EditorInspectorCategory::ThemeCa
 	p_cache.icon_unfavorite = p_control->get_editor_theme_icon(SNAME("Unfavorite"));
 	p_cache.icon_help = p_control->get_editor_theme_icon(SNAME("Help"));
 
-	p_cache.background = p_control->get_theme_stylebox(SNAME("bg"), category_type);
+	p_cache.background = p_control->get_theme_stylebox(SNAME("bg"), SNAME("EditorInspectorCategory"));
 
 	if (p_control == parent_inspector) {
 		// Only initialize for the inspector, as stand-alone categories won't need it.

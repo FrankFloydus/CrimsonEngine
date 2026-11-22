@@ -73,7 +73,7 @@ float get_gizmo_handle_scale(const String &p_gizmo_handle_name, float p_gizmo_ha
 	return EDSCALE;
 }
 
-void editor_register_icons(const Ref<Theme> &p_theme, bool p_dark_theme, float p_icon_saturation, int p_thumb_size, float p_gizmo_handle_scale, bool p_muted_type_icons) {
+void editor_register_icons(const Ref<Theme> &p_theme, bool p_dark_theme, float p_icon_saturation, int p_thumb_size, float p_gizmo_handle_scale) {
 	// Before we register the icons, we adjust their colors and saturation.
 	// Most icons follow the standard rules for color conversion to follow the editor
 	// theme's polarity (dark/light). We also adjust the saturation for most icons,
@@ -100,16 +100,6 @@ void editor_register_icons(const Ref<Theme> &p_theme, bool p_dark_theme, float p
 	color_conversion_map_light[Color::html("#ff5f5f")] = error_color;
 	color_conversion_map_light[Color::html("#5fff97")] = success_color;
 	color_conversion_map_light[Color::html("#ffdd65")] = warning_color;
-
-	if (p_dark_theme && p_muted_type_icons) {
-		// Keep type families recognizable without giving every node the accent intensity of a warning.
-		color_conversion_map_dark[Color::hex(0xfc7f7fff)] = Color::hex(0xc49398ff); // 3D.
-		color_conversion_map_dark[Color::hex(0xb56d6dff)] = Color::hex(0x9c7f85ff);
-		color_conversion_map_dark[Color::hex(0x8da5f3ff)] = Color::hex(0xa0a7c1ff); // 2D.
-		color_conversion_map_dark[Color::hex(0x7582a8ff)] = Color::hex(0x798099ff);
-		color_conversion_map_dark[Color::hex(0x8eef97ff)] = Color::hex(0x9eb5a4ff); // UI.
-		color_conversion_map_dark[Color::hex(0x76ad7bff)] = Color::hex(0x7f9486ff);
-	}
 
 	Dictionary color_conversion_map = p_dark_theme ? color_conversion_map_dark : color_conversion_map_light;
 

@@ -530,7 +530,7 @@ void EditorSettings::_load_defaults(Ref<ConfigFile> p_extra_config) {
 	EDITOR_SETTING_USAGE(Variant::BOOL, PROPERTY_HINT_NONE, "interface/editor/appearance/expand_to_title", true, "", PROPERTY_USAGE_DEFAULT | PROPERTY_USAGE_RESTART_IF_CHANGED | PROPERTY_USAGE_EDITOR_BASIC_SETTING)
 	EDITOR_SETTING_BASIC(Variant::INT, PROPERTY_HINT_RANGE, "interface/editor/appearance/max_sticky_tree_items", 6, "0,16")
 
-	EDITOR_SETTING_BASIC(Variant::INT, PROPERTY_HINT_RANGE, "interface/editor/fonts/main_font_size", 13, "8,48,1")
+	EDITOR_SETTING_BASIC(Variant::INT, PROPERTY_HINT_RANGE, "interface/editor/fonts/main_font_size", 14, "8,48,1")
 	EDITOR_SETTING_BASIC(Variant::INT, PROPERTY_HINT_RANGE, "interface/editor/fonts/code_font_size", 14, "8,48,1")
 	_initial_set("interface/editor/fonts/main_font_custom_opentype_features", "");
 	EDITOR_SETTING(Variant::INT, PROPERTY_HINT_ENUM, "interface/editor/fonts/code_font_contextual_ligatures", 1, "Enabled,Disable Contextual Alternates (Coding Ligatures),Use Custom OpenType Feature Set")
@@ -620,15 +620,15 @@ void EditorSettings::_load_defaults(Ref<ConfigFile> p_extra_config) {
 	// Theme
 	EDITOR_SETTING_BASIC(Variant::BOOL, PROPERTY_HINT_ENUM, "interface/theme/follow_system_theme", false, "")
 	EDITOR_SETTING_BASIC(Variant::STRING, PROPERTY_HINT_ENUM, "interface/theme/style", "Modern", "Modern,Classic")
-	EDITOR_SETTING_BASIC(Variant::STRING, PROPERTY_HINT_ENUM, "interface/theme/color_preset", "Crimson", "Crimson,Default,Breeze Dark,Godot,Godot 2,Godot 3,Gray,Light,Solarized (Dark),Solarized (Light),Black (OLED),Custom")
+	EDITOR_SETTING_BASIC(Variant::STRING, PROPERTY_HINT_ENUM, "interface/theme/color_preset", "Default", "Default,Breeze Dark,Godot 2,Godot 3,Gray,Light,Solarized (Dark),Solarized (Light),Black (OLED),Custom")
 	EDITOR_SETTING_BASIC(Variant::STRING, PROPERTY_HINT_ENUM, "interface/theme/spacing_preset", "Default", "Compact,Default,Spacious,Custom")
 	EDITOR_SETTING(Variant::INT, PROPERTY_HINT_ENUM, "interface/theme/icon_and_font_color", 0, "Auto,Dark,Light")
-	EDITOR_SETTING_BASIC(Variant::COLOR, PROPERTY_HINT_NONE, "interface/theme/base_color", Color::hex(0x19191bff), "")
-	EDITOR_SETTING_BASIC(Variant::COLOR, PROPERTY_HINT_NONE, "interface/theme/accent_color", Color::hex(0xee7186ff), "")
+	EDITOR_SETTING_BASIC(Variant::COLOR, PROPERTY_HINT_NONE, "interface/theme/base_color", Color(0.14, 0.14, 0.14), "")
+	EDITOR_SETTING_BASIC(Variant::COLOR, PROPERTY_HINT_NONE, "interface/theme/accent_color", Color(0.34, 0.62, 1.0), "")
 	EDITOR_SETTING_BASIC(Variant::BOOL, PROPERTY_HINT_NONE, "interface/theme/use_system_accent_color", false, "")
-	EDITOR_SETTING_BASIC(Variant::FLOAT, PROPERTY_HINT_RANGE, "interface/theme/contrast", 0.22, "-1,1,0.01")
+	EDITOR_SETTING_BASIC(Variant::FLOAT, PROPERTY_HINT_RANGE, "interface/theme/contrast", 0.3, "-1,1,0.01")
 	EDITOR_SETTING(Variant::BOOL, PROPERTY_HINT_NONE, "interface/theme/draw_extra_borders", false, "")
-	EDITOR_SETTING(Variant::FLOAT, PROPERTY_HINT_RANGE, "interface/theme/icon_saturation", 0.92, "0,2,0.01")
+	EDITOR_SETTING(Variant::FLOAT, PROPERTY_HINT_RANGE, "interface/theme/icon_saturation", 2.0, "0,2,0.01")
 	EDITOR_SETTING(Variant::INT, PROPERTY_HINT_ENUM, "interface/theme/draw_relationship_lines", (int32_t)EditorThemeManager::RELATIONSHIP_SELECTED_ONLY, "None,Selected Only,All")
 	EDITOR_SETTING(Variant::FLOAT, PROPERTY_HINT_RANGE, "interface/theme/relationship_line_opacity", 0.1, "0.00,1,0.01")
 	EDITOR_SETTING(Variant::INT, PROPERTY_HINT_RANGE, "interface/theme/border_size", 0, "0,2,1")
@@ -1310,6 +1310,12 @@ const String EditorSettings::_get_project_metadata_path() const {
 
 #ifndef DISABLE_DEPRECATED
 void EditorSettings::_handle_setting_compatibility() {
+	// Replace color presets removed with the custom editor theme.
+	const String color_preset = get_setting("interface/theme/color_preset");
+	if (color_preset == "Crimson" || color_preset == "Godot") {
+		set_manually("interface/theme/color_preset", "Default");
+	}
+
 	// Remove deprecated settings.
 	erase("interface/theme/preset");
 	erase("network/connection/engine_version_update_mode");
@@ -1986,54 +1992,6 @@ HashMap<StringName, Color> EditorSettings::get_godot2_text_editor_theme() {
 
 	colors["text_editor/theme/highlighting/warning_underline_color"] = Color(0.89, 0.7, 0.2);
 	colors["text_editor/theme/highlighting/error_underline_color"] = Color(1.0, 0.0, 0.0);
-	return colors;
-}
-
-HashMap<StringName, Color> EditorSettings::get_crimson_text_editor_theme() {
-	HashMap<StringName, Color> colors;
-
-	// Match the editor's recessed and popup surfaces, with separate hues for code and diagnostics.
-	colors["text_editor/theme/highlighting/background_color"] = Color::hex(0x0f0f11ff);
-	colors["text_editor/theme/highlighting/text_color"] = Color::hex(0xe8e7eaff);
-	colors["text_editor/theme/highlighting/completion_background_color"] = Color::hex(0x1e1f21ff);
-	colors["text_editor/theme/highlighting/completion_font_color"] = Color::hex(0xf0e9eeff);
-	colors["text_editor/theme/highlighting/completion_selected_color"] = Color::hex(0x502e40ff);
-	colors["text_editor/theme/highlighting/caret_color"] = Color::hex(0xff8598ff);
-	colors["text_editor/theme/highlighting/selection_color"] = Color::hex(0x50273aff);
-	colors["text_editor/theme/highlighting/current_line_color"] = Color::hex(0x19191bff);
-	colors["text_editor/theme/highlighting/line_length_guideline_color"] = Color::hex(0x4b4655ff);
-	colors["text_editor/theme/highlighting/word_highlighted_color"] = Color::hex(0x29292dff);
-	colors["text_editor/theme/highlighting/line_number_color"] = Color::hex(0xaa9ca9ff);
-	colors["text_editor/theme/highlighting/safe_line_number_color"] = Color::hex(0xa0c8abff);
-	colors["text_editor/theme/highlighting/search_result_color"] = Color::hex(0x433023ff);
-	colors["text_editor/theme/highlighting/search_result_border_color"] = Color::hex(0xc99557ff);
-
-	colors["text_editor/theme/highlighting/symbol_color"] = Color::hex(0xd1c4cfff);
-	colors["text_editor/theme/highlighting/keyword_color"] = Color::hex(0xff8598ff);
-	colors["text_editor/theme/highlighting/control_flow_keyword_color"] = Color::hex(0xf1a5c7ff);
-	colors["text_editor/theme/highlighting/base_type_color"] = Color::hex(0x9bd8c4ff);
-	colors["text_editor/theme/highlighting/engine_type_color"] = Color::hex(0xa7cef0ff);
-	colors["text_editor/theme/highlighting/user_type_color"] = Color::hex(0xc7b7f1ff);
-	colors["text_editor/theme/highlighting/comment_color"] = Color::hex(0xaa9ca9ff);
-	colors["text_editor/theme/highlighting/doc_comment_color"] = Color::hex(0xc2abbfff);
-	colors["text_editor/theme/highlighting/string_color"] = Color::hex(0xf0c68aff);
-	colors["text_editor/theme/highlighting/string_placeholder_color"] = Color::hex(0xffb99aff);
-	colors["text_editor/theme/highlighting/number_color"] = Color::hex(0xb2dfc6ff);
-	colors["text_editor/theme/highlighting/function_color"] = Color::hex(0xaacdf5ff);
-	colors["text_editor/theme/highlighting/member_variable_color"] = Color::hex(0xc9d4e2ff);
-	colors["text_editor/theme/highlighting/gdscript/function_definition_color"] = Color::hex(0xa4dce6ff);
-	colors["text_editor/theme/highlighting/gdscript/global_function_color"] = Color::hex(0xcdb4f2ff);
-	colors["text_editor/theme/highlighting/gdscript/node_path_color"] = Color::hex(0xc9d998ff);
-	colors["text_editor/theme/highlighting/gdscript/node_reference_color"] = Color::hex(0xa5d8a0ff);
-	colors["text_editor/theme/highlighting/gdscript/annotation_color"] = Color::hex(0xf7b88eff);
-	colors["text_editor/theme/highlighting/gdscript/string_name_color"] = Color::hex(0xf0b090ff);
-
-	colors["text_editor/theme/highlighting/bookmark_color"] = Color::hex(0xc7a8efff);
-	colors["text_editor/theme/highlighting/comment_markers/critical_color"] = Color::hex(0xff9b9bff);
-	colors["text_editor/theme/highlighting/comment_markers/warning_color"] = Color::hex(0xeac16dff);
-	colors["text_editor/theme/highlighting/comment_markers/notice_color"] = Color::hex(0xadd3aeff);
-	colors["text_editor/theme/highlighting/warning_underline_color"] = Color::hex(0xeac16dff);
-	colors["text_editor/theme/highlighting/error_underline_color"] = Color::hex(0xff7f80ff);
 	return colors;
 }
 

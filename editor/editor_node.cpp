@@ -162,16 +162,13 @@
 #include "scene/gui/control.h"
 #include "scene/gui/dialogs.h"
 #include "scene/gui/file_dialog.h"
-#include "scene/gui/label.h"
 #include "scene/gui/menu_bar.h"
 #include "scene/gui/menu_button.h"
 #include "scene/gui/panel.h"
-#include "scene/gui/panel_container.h"
 #include "scene/gui/popup.h"
 #include "scene/gui/rich_text_label.h"
 #include "scene/gui/split_container.h"
 #include "scene/gui/tab_container.h"
-#include "scene/gui/texture_rect.h"
 #include "scene/main/scene_tree.h"
 #include "scene/main/timer.h"
 #include "scene/main/window.h"
@@ -391,8 +388,7 @@ void EditorNode::_version_control_menu_option(int p_idx) {
 
 void EditorNode::_update_title() {
 	const String appname = GLOBAL_GET("application/config/name");
-	const String project_name = appname.is_empty() ? TTR("Unnamed Project") : appname;
-	String title = project_name;
+	String title = (appname.is_empty() ? TTR("Unnamed Project") : appname);
 	const String edited = editor_data.get_edited_scene_root() ? editor_data.get_edited_scene_root()->get_scene_file_path() : String();
 	if (!edited.is_empty()) {
 		// Display the edited scene name before the program name so that it can be seen in the OS task bar.
@@ -404,7 +400,7 @@ void EditorNode::_update_title() {
 	}
 	DisplayServer::get_singleton()->window_set_title(title + String(" - ") + GODOT_VERSION_NAME);
 	if (project_title) {
-		project_title->set_text(project_identity ? project_name : title);
+		project_title->set_text(title);
 	}
 }
 
@@ -807,9 +803,6 @@ void EditorNode::_update_theme(bool p_skip_creation) {
 
 		if (main_menu_button != nullptr) {
 			main_menu_button->set_button_icon(theme->get_icon(SNAME("TripleBar"), EditorStringName(EditorIcons)));
-		}
-		if (project_mark) {
-			project_mark->set_texture(theme->get_icon(SNAME("Godot"), EditorStringName(EditorIcons)));
 		}
 
 		editor_main_screen->add_theme_style_override(SceneStringName(panel), theme->get_stylebox(SNAME("Content"), EditorStringName(EditorStyles)));
@@ -8434,8 +8427,7 @@ void EditorNode::_update_main_menu_type() {
 	memdelete(menu_btn_spacer);
 	menu_btn_spacer = nullptr;
 
-	// Keep the application menu adjacent to the project identity on desktop.
-	const int menu_index = project_identity ? project_identity->get_index() + 1 : (left_menu_spacer ? left_menu_spacer->get_index() + 1 : 0);
+	// Create new menu.
 	if (new_menu_type == MENU_TYPE_COMPACT) {
 		main_menu_button = memnew(MenuButton);
 		main_menu_button->set_text(TTRC("Main Menu"));
@@ -8457,11 +8449,11 @@ void EditorNode::_update_main_menu_type() {
 		menu_btn_spacer = memnew(Control);
 		menu_btn_spacer->set_custom_minimum_size(Vector2(8, 0) * EDSCALE);
 		title_bar->add_child(menu_btn_spacer);
-		title_bar->move_child(menu_btn_spacer, menu_index);
+		title_bar->move_child(menu_btn_spacer, left_menu_spacer ? left_menu_spacer->get_index() + 1 : 0);
 #endif
 		title_bar->add_child(main_menu_button);
 		if (menu_btn_spacer == nullptr) {
-			title_bar->move_child(main_menu_button, menu_index);
+			title_bar->move_child(main_menu_button, left_menu_spacer ? left_menu_spacer->get_index() + 1 : 0);
 		} else {
 			title_bar->move_child(main_menu_button, menu_btn_spacer->get_index() + 1);
 		}
@@ -8481,11 +8473,11 @@ void EditorNode::_update_main_menu_type() {
 		}
 
 		title_bar->add_child(main_menu_bar);
-		title_bar->move_child(main_menu_bar, menu_index);
+		title_bar->move_child(main_menu_bar, left_menu_spacer ? left_menu_spacer->get_index() + 1 : 0);
 	}
 
 	// Show/hide project title.
-	if (project_title && !project_identity) {
+	if (project_title) {
 		project_title->set_visible(can_expand && menu_type == MENU_TYPE_GLOBAL);
 	}
 }
@@ -8920,13 +8912,8 @@ EditorNode::EditorNode() {
 #else
 	gui_base->add_child(main_vbox);
 
-	PanelContainer *application_bar_panel = memnew(PanelContainer);
-	application_bar_panel->set_theme_type_variation("CrimsonApplicationBar");
-	application_bar_panel->set_mouse_filter(Control::MOUSE_FILTER_IGNORE);
-	main_vbox->add_child(application_bar_panel);
-
 	title_bar = memnew(EditorTitleBar);
-	application_bar_panel->add_child(title_bar);
+	main_vbox->add_child(title_bar);
 #endif
 
 	DockSplitContainer *main_vsplit = memnew(DockSplitContainer);
@@ -8995,16 +8982,7 @@ EditorNode::EditorNode() {
 	center_split->set_vertical(true);
 	center_split->set_v_size_flags(Control::SIZE_EXPAND_FILL);
 	center_split->set_collapsed(true);
-#ifdef ANDROID_ENABLED
 	center_vb->add_child(center_split);
-#else
-	PanelContainer *work_area = memnew(PanelContainer);
-	work_area->set_theme_type_variation("CrimsonWorkArea");
-	work_area->set_v_size_flags(Control::SIZE_EXPAND_FILL);
-	work_area->set_mouse_filter(Control::MOUSE_FILTER_IGNORE);
-	center_vb->add_child(work_area);
-	work_area->add_child(center_split);
-#endif
 	center_split->connect("drag_ended", callable_mp(this, &EditorNode::_bottom_panel_resized));
 
 	right_l_vsplit = memnew(DockSplitContainer);
@@ -9109,11 +9087,7 @@ EditorNode::EditorNode() {
 	srt->add_theme_constant_override("separation", 0);
 	top_split->add_child(srt);
 
-#ifdef ANDROID_ENABLED
 	scene_tabs = memnew(EditorSceneTabs);
-#else
-	scene_tabs = memnew(EditorSceneTabs(true));
-#endif
 	srt->add_child(scene_tabs);
 	scene_tabs->connect("tab_changed", callable_mp(this, &EditorNode::_set_current_scene));
 	scene_tabs->connect("tab_closed", callable_mp(this, &EditorNode::_scene_tab_closed));
@@ -9334,40 +9308,14 @@ EditorNode::EditorNode() {
 	help_menu->connect(SceneStringName(id_pressed), callable_mp(this, &EditorNode::_menu_option));
 	_add_to_main_menu(TTRC("Help"), help_menu);
 
-#ifndef ANDROID_ENABLED
-	project_identity = memnew(HBoxContainer);
-	project_identity->set_custom_maximum_size(Size2(176 * EDSCALE, -1));
-	project_identity->add_theme_constant_override("separation", EDSCALE_RND(8));
-	project_identity->set_mouse_filter(Control::MOUSE_FILTER_IGNORE);
-	title_bar->add_child(project_identity);
-
-	project_mark = memnew(TextureRect);
-	project_mark->set_texture(theme->get_icon(SNAME("Godot"), EditorStringName(EditorIcons)));
-	project_mark->set_expand_mode(TextureRect::EXPAND_IGNORE_SIZE);
-	project_mark->set_stretch_mode(TextureRect::STRETCH_KEEP_ASPECT_CENTERED);
-	project_mark->set_custom_minimum_size(Size2(22, 22) * EDSCALE);
-	project_mark->set_v_size_flags(Control::SIZE_SHRINK_CENTER);
-	project_mark->set_mouse_filter(Control::MOUSE_FILTER_IGNORE);
-	project_identity->add_child(project_mark);
-
-	project_title = memnew(Label);
-	project_title->set_theme_type_variation("CrimsonWorkspaceCaption");
-	project_title->set_auto_translate_mode(AUTO_TRANSLATE_MODE_DISABLED);
-	project_title->set_text_overrun_behavior(TextServer::OVERRUN_TRIM_ELLIPSIS_FORCE);
-	project_title->set_h_size_flags(Control::SIZE_EXPAND_FILL);
-	project_title->set_mouse_filter(Control::MOUSE_FILTER_IGNORE);
-	project_identity->add_child(project_title);
-#endif
-
 	_update_main_menu_type();
 
-	// Frame the main-screen selector with flexible space on both sides.
-	HBoxContainer *left_spacer = memnew(HBoxContainer);
+	// Spacer to center 2D / 3D / Script buttons.
+	left_spacer = memnew(HBoxContainer);
 	left_spacer->set_mouse_filter(Control::MOUSE_FILTER_IGNORE);
 	left_spacer->set_h_size_flags(Control::SIZE_EXPAND_FILL);
 	title_bar->add_child(left_spacer);
 
-#ifdef ANDROID_ENABLED
 	project_title = memnew(Label);
 	project_title->add_theme_font_override(SceneStringName(font), theme->get_font(SNAME("bold"), EditorStringName(EditorFonts)));
 	project_title->add_theme_font_size_override(SceneStringName(font_size), theme->get_font_size(SNAME("bold_size"), EditorStringName(EditorFonts)));
@@ -9377,9 +9325,9 @@ EditorNode::EditorNode() {
 	project_title->set_mouse_filter(Control::MOUSE_FILTER_IGNORE);
 	project_title->set_visible(can_expand && menu_type == MENU_TYPE_GLOBAL);
 	left_spacer->add_child(project_title);
-#endif
 
-	Control *right_spacer = memnew(Control);
+	// Spacer to center 2D / 3D / Script buttons.
+	right_spacer = memnew(Control);
 	right_spacer->set_mouse_filter(Control::MOUSE_FILTER_IGNORE);
 	right_spacer->set_h_size_flags(Control::SIZE_EXPAND_FILL);
 	title_bar->add_child(right_spacer);

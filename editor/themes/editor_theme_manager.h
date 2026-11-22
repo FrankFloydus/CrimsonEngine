@@ -57,8 +57,6 @@ public:
 		String preset;
 		String spacing_preset;
 
-		bool is_crimson_preset() const { return preset == "Crimson" || preset == "Default"; }
-
 		Color base_color;
 		Color accent_color;
 		float contrast = 1.0;

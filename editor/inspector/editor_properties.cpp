@@ -1285,16 +1285,13 @@ void EditorPropertyLayersGrid::_notification(int p_what) {
 			const int bsize = (grid_size.height * 80 / 100) / 2;
 			const int h = bsize * 2 + 1;
 
-			const Color fallback_cell_color = get_theme_color(read_only ? SNAME("highlight_disabled_color") : SNAME("highlight_color"), EditorStringName(Editor));
-			const Color fallback_text_off = get_theme_color(read_only ? SNAME("font_disabled_color") : SceneStringName(font_color), EditorStringName(Editor));
-			const Color fallback_text_on = get_theme_color(read_only ? SNAME("font_disabled_color") : SNAME("font_hover_color"), EditorStringName(Editor));
-			const bool custom_on_color = has_theme_color(SNAME("layer_on_color"));
-			const bool custom_off_color = has_theme_color(SNAME("layer_off_color"));
-			const Color cell_modulate(1, 1, 1, read_only ? 0.6 : 1.0);
-			const Color cell_on = custom_on_color ? get_theme_color(SNAME("layer_on_color")) * cell_modulate : Color(fallback_cell_color, 0.6);
-			const Color cell_off = custom_off_color ? get_theme_color(SNAME("layer_off_color")) * cell_modulate : Color(fallback_cell_color, 0.2);
-			const Color text_on = !read_only && has_theme_color(SNAME("layer_text_color")) ? get_theme_color(SNAME("layer_text_color")) : fallback_text_on * Color(1, 1, 1, 0.7);
-			const Color text_off = !read_only && has_theme_color(SNAME("layer_text_off_color")) ? get_theme_color(SNAME("layer_text_off_color")) : fallback_text_off * Color(1, 1, 1, 0.5);
+			Color color = get_theme_color(read_only ? SNAME("highlight_disabled_color") : SNAME("highlight_color"), EditorStringName(Editor));
+
+			Color text_color = get_theme_color(read_only ? SNAME("font_disabled_color") : SceneStringName(font_color), EditorStringName(Editor));
+			text_color.a *= 0.5;
+
+			Color text_color_on = get_theme_color(read_only ? SNAME("font_disabled_color") : SNAME("font_hover_color"), EditorStringName(Editor));
+			text_color_on.a *= 0.7;
 
 			const int vofs = (grid_size.height - h) / 2;
 
@@ -1312,13 +1309,10 @@ void EditorPropertyLayersGrid::_notification(int p_what) {
 						const bool on = value & (1u << layer_index);
 						Rect2 rect2 = Rect2(ofs, Size2(bsize, bsize));
 
-						Color color = on ? cell_on : cell_off;
+						color.a = on ? 0.6 : 0.2;
 						if (layer_index == hovered_index) {
-							if (on ? custom_on_color : custom_off_color) {
-								color = color.lightened(0.12);
-							} else {
-								color.a += 0.15;
-							}
+							// Add visual feedback when hovering a flag.
+							color.a += 0.15;
 						}
 
 						draw_rect(rect2, color);
@@ -1329,7 +1323,7 @@ void EditorPropertyLayersGrid::_notification(int p_what) {
 						Vector2 offset;
 						offset.y = rect2.size.y * 0.75;
 
-						draw_string(font, rect2.position + offset, itos(layer_index + 1), HORIZONTAL_ALIGNMENT_CENTER, rect2.size.x, font_size, on ? text_on : text_off);
+						draw_string(font, rect2.position + offset, itos(layer_index + 1), HORIZONTAL_ALIGNMENT_CENTER, rect2.size.x, font_size, on ? text_color_on : text_color);
 
 						ofs.x += bsize + 1;
 
@@ -1382,7 +1376,7 @@ void EditorPropertyLayersGrid::_notification(int p_what) {
 			Ref<Texture2D> arrow = get_theme_icon(SNAME("arrow"), SNAME("Tree"));
 			ERR_FAIL_COND(arrow.is_null());
 
-			Color arrow_color = has_theme_color(SNAME("layer_text_off_color")) ? get_theme_color(SNAME("layer_text_off_color")) : get_theme_color(SNAME("highlight_color"), EditorStringName(Editor));
+			Color arrow_color = get_theme_color(SNAME("highlight_color"), EditorStringName(Editor));
 			arrow_color.a = expand_hovered ? 1.0 : 0.6;
 
 			arrow_pos.x += 2.0;

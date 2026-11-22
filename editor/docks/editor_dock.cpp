@@ -35,8 +35,6 @@
 #include "core/object/class_db.h"
 #include "editor/docks/dock_tab_container.h"
 #include "editor/docks/editor_dock_manager.h"
-#include "editor/editor_string_names.h"
-#include "editor/settings/editor_settings.h"
 
 void EditorDock::_set_default_slot_bind(DockSlot p_slot) {
 	ERR_FAIL_COND(p_slot < DOCK_SLOT_NONE || p_slot >= DOCK_SLOT_MAX);
@@ -306,26 +304,7 @@ void EditorDock::update_tab_style() {
 
 	parent_dock_container->get_tab_bar()->set_font_color_override_all(index, title_color);
 
-	Ref<Texture2D> icon;
-	if (current_layout == DOCK_LAYOUT_MAIN_SCREEN && dock_icon.is_null()) {
-		const String preset = EDITOR_GET("interface/theme/color_preset");
-		if (preset == "Crimson" || preset == "Default") {
-			static const HashMap<StringName, StringName> crimson_workspace_icons = {
-				{ "2D", "CrimsonWorkspace2D" },
-				{ "3D", "CrimsonWorkspace3D" },
-				{ "Script", "CrimsonWorkspaceScript" },
-				{ "Game", "CrimsonWorkspaceGame" },
-				{ "AssetStore", "CrimsonWorkspaceAssets" },
-			};
-			const StringName *crimson_icon = crimson_workspace_icons.getptr(icon_name);
-			if (crimson_icon && has_theme_icon(*crimson_icon, EditorStringName(EditorIcons))) {
-				icon = get_editor_theme_icon(*crimson_icon);
-			}
-		}
-	}
-	if (icon.is_null()) {
-		icon = get_effective_icon(callable_mp((Control *)this, &Control::get_editor_theme_icon));
-	}
+	const Ref<Texture2D> icon = get_effective_icon(callable_mp((Control *)this, &Control::get_editor_theme_icon));
 	const String dock_title = get_display_title();
 	const bool is_ui_workspace = current_layout == DOCK_LAYOUT_MAIN_SCREEN && icon_name == SNAME("2D") && dock_title == "2D";
 	const String tab_title = is_ui_workspace ? TTRC("UI") : dock_title;

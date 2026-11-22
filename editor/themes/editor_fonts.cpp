@@ -112,7 +112,7 @@ Ref<FontVariation> make_bold_font(const Ref<Font> &p_font, double p_embolden, Ty
 	return font_var;
 }
 
-void editor_register_fonts(const Ref<Theme> &p_theme, bool p_crimson_typography) {
+void editor_register_fonts(const Ref<Theme> &p_theme) {
 	Ref<DirAccess> dir = DirAccess::create(DirAccess::ACCESS_FILESYSTEM);
 
 	TextServer::FontAntialiasing font_antialiasing = (TextServer::FontAntialiasing)(int)EDITOR_GET("interface/editor/fonts/font_antialiasing");
@@ -152,10 +152,7 @@ void editor_register_fonts(const Ref<Theme> &p_theme, bool p_crimson_typography)
 	}
 
 	// Load built-in fonts.
-	const int logical_font_size = EDITOR_GET("interface/editor/fonts/main_font_size");
-	const int default_font_size = p_crimson_typography ? EDSCALE_RND(logical_font_size) : logical_font_size * EDSCALE;
-	const int compact_font_size = EDSCALE_RND(MAX(8, logical_font_size - 1));
-	const int metadata_font_size = EDSCALE_RND(MAX(8, logical_font_size - 2));
+	const int default_font_size = int(EDITOR_GET("interface/editor/fonts/main_font_size")) * EDSCALE;
 	const float embolden_strength = 0.6;
 
 	Ref<Font> default_font = load_internal_font(_font_Inter_Regular, _font_Inter_Regular_size, font_hinting, font_antialiasing, true, font_subpixel_positioning, font_disable_embedded_bitmaps, false);
@@ -477,34 +474,6 @@ void editor_register_fonts(const Ref<Theme> &p_theme, bool p_crimson_typography)
 	mono_other_fc_mono->set_variation_embolden(-0.25);
 	mono_other_fc_mono->set_variation_transform(Transform2D(1.0, 0.1, 0.0, 1.0, 0.0, 0.0));
 
-	Ref<Font> medium_font = bold_fc;
-	Ref<Font> control_font = default_fc;
-	Ref<Font> display_font = bold_fc;
-	if (p_crimson_typography && !dir->file_exists(custom_font_path) && !dir->file_exists(custom_font_path_bold)) {
-		Ref<FontFile> inter = load_internal_font(_font_Inter_Variable, _font_Inter_Variable_size, font_hinting, font_antialiasing, true, font_subpixel_positioning, font_disable_embedded_bitmaps);
-		inter->set_fallbacks(fallbacks);
-		const auto apply_axes = [&inter](const Ref<FontVariation> &p_variation, int p_weight, int p_optical_size) {
-			Dictionary axes;
-			axes[TS->name_to_tag("wght")] = p_weight;
-			axes[TS->name_to_tag("opsz")] = p_optical_size;
-			p_variation->set_base_font(inter);
-			p_variation->set_variation_opentype(axes);
-		};
-		apply_axes(default_fc, 450, 14);
-		Ref<FontVariation> heading;
-		heading.instantiate();
-		apply_axes(heading, 550, 14);
-		medium_font = heading;
-		Ref<FontVariation> control;
-		control.instantiate();
-		apply_axes(control, 500, 14);
-		control_font = control;
-		Ref<FontVariation> title;
-		title.instantiate();
-		apply_axes(title, 600, 28);
-		display_font = title;
-	}
-
 	Ref<FontVariation> italic_fc = default_fc->duplicate();
 	italic_fc->set_variation_transform(Transform2D(1.0, 0.2, 0.0, 1.0, 0.0, 0.0));
 
@@ -529,63 +498,34 @@ void editor_register_fonts(const Ref<Theme> &p_theme, bool p_crimson_typography)
 	p_theme->set_font("italic", EditorStringName(EditorFonts), italic_fc);
 	p_theme->set_font_size("italic_size", EditorStringName(EditorFonts), default_font_size);
 
-	// Interface typography.
-	p_theme->set_font("control", EditorStringName(EditorFonts), control_font);
-	p_theme->set_font_size("control_size", EditorStringName(EditorFonts), compact_font_size);
-	p_theme->set_font("medium", EditorStringName(EditorFonts), medium_font);
-	p_theme->set_font_size("medium_size", EditorStringName(EditorFonts), default_font_size);
-	const Ref<Font> tab_font = p_crimson_typography ? control_font : Ref<Font>(bold_fc);
-	p_theme->set_font("tab", EditorStringName(EditorFonts), tab_font);
-	p_theme->set_font("title", EditorStringName(EditorFonts), display_font);
-	p_theme->set_font_size("title_size", EditorStringName(EditorFonts), default_font_size + (p_crimson_typography ? 3 : 1) * EDSCALE);
-	if (p_crimson_typography) {
-		p_theme->set_font_size("project_caption_size", EditorStringName(EditorFonts), EDSCALE_RND(logical_font_size + 1));
+	// Title font.
 
-		for (const char *type : { "TabBar", "TabContainer" }) {
-			p_theme->set_font(SceneStringName(font), type, tab_font);
-			p_theme->set_font_size(SceneStringName(font_size), type, default_font_size);
-		}
-		for (const char *type : { "Button", "MenuButton", "MenuBar", "OptionButton", "PopupMenu", "BottomPanel" }) {
-			p_theme->set_font(SceneStringName(font), type, control_font);
-			p_theme->set_font_size(SceneStringName(font_size), type, compact_font_size);
-		}
-		for (const char *type : { "LineEdit", "SpinBox" }) {
-			p_theme->set_font_size(SceneStringName(font_size), type, compact_font_size);
-		}
-		for (const char *type : { "Tree", "ItemList" }) {
-			p_theme->set_font(SceneStringName(font), type, default_fc);
-			p_theme->set_font_size(SceneStringName(font_size), type, default_font_size);
-		}
-
-		p_theme->set_font("title_button_font", "Tree", control_font);
-		p_theme->set_font_size("title_button_font_size", "Tree", metadata_font_size);
-		p_theme->set_font("font_separator", "PopupMenu", control_font);
-		p_theme->set_font_size("font_separator_size", "PopupMenu", metadata_font_size);
-	}
+	p_theme->set_font("title", EditorStringName(EditorFonts), bold_fc);
+	p_theme->set_font_size("title_size", EditorStringName(EditorFonts), default_font_size + 1 * EDSCALE);
 
 	p_theme->set_type_variation("MainScreenContainer", "TabContainer");
-	p_theme->set_font(SceneStringName(font), "MainScreenContainer", medium_font);
-	p_theme->set_font_size(SceneStringName(font_size), "MainScreenContainer", default_font_size + (p_crimson_typography ? 0 : 2) * EDSCALE);
+	p_theme->set_font(SceneStringName(font), "MainScreenContainer", bold_fc);
+	p_theme->set_font_size(SceneStringName(font_size), "MainScreenContainer", default_font_size + 2 * EDSCALE);
 
 	p_theme->set_type_variation("MainScreenButton", "Button");
-	p_theme->set_font(SceneStringName(font), "MainScreenButton", medium_font);
-	p_theme->set_font_size(SceneStringName(font_size), "MainScreenButton", default_font_size + (p_crimson_typography ? 0 : 2) * EDSCALE);
+	p_theme->set_font(SceneStringName(font), "MainScreenButton", bold_fc);
+	p_theme->set_font_size(SceneStringName(font_size), "MainScreenButton", default_font_size + 2 * EDSCALE);
 
 	// Labels.
 
 	p_theme->set_font(SceneStringName(font), "Label", default_fc);
 
 	p_theme->set_type_variation("HeaderSmall", "Label");
-	p_theme->set_font(SceneStringName(font), "HeaderSmall", medium_font);
+	p_theme->set_font(SceneStringName(font), "HeaderSmall", bold_fc);
 	p_theme->set_font_size(SceneStringName(font_size), "HeaderSmall", default_font_size);
 
 	p_theme->set_type_variation("HeaderMedium", "Label");
-	p_theme->set_font(SceneStringName(font), "HeaderMedium", display_font);
-	p_theme->set_font_size(SceneStringName(font_size), "HeaderMedium", default_font_size + (p_crimson_typography ? 2 : 1) * EDSCALE);
+	p_theme->set_font(SceneStringName(font), "HeaderMedium", bold_fc);
+	p_theme->set_font_size(SceneStringName(font_size), "HeaderMedium", default_font_size + 1 * EDSCALE);
 
 	p_theme->set_type_variation("HeaderLarge", "Label");
-	p_theme->set_font(SceneStringName(font), "HeaderLarge", display_font);
-	p_theme->set_font_size(SceneStringName(font_size), "HeaderLarge", default_font_size + (p_crimson_typography ? 5 : 3) * EDSCALE);
+	p_theme->set_font(SceneStringName(font), "HeaderLarge", bold_fc);
+	p_theme->set_font_size(SceneStringName(font_size), "HeaderLarge", default_font_size + 3 * EDSCALE);
 
 	p_theme->set_font("normal_font", "RichTextLabel", default_fc);
 	p_theme->set_font("bold_font", "RichTextLabel", bold_fc);
@@ -598,7 +538,7 @@ void editor_register_fonts(const Ref<Theme> &p_theme, bool p_crimson_typography)
 	p_theme->set_font("doc_bold", EditorStringName(EditorFonts), bold_fc);
 	p_theme->set_font("doc_italic", EditorStringName(EditorFonts), italic_fc);
 	p_theme->set_font_size("doc_title_size", EditorStringName(EditorFonts), int(EDITOR_GET("text_editor/help/help_title_font_size")) * EDSCALE);
-	p_theme->set_font("doc_title", EditorStringName(EditorFonts), display_font);
+	p_theme->set_font("doc_title", EditorStringName(EditorFonts), bold_fc);
 	p_theme->set_font_size("doc_source_size", EditorStringName(EditorFonts), int(EDITOR_GET("text_editor/help/help_source_font_size")) * EDSCALE);
 	p_theme->set_font("doc_source", EditorStringName(EditorFonts), mono_fc);
 	p_theme->set_font_size("doc_keyboard_size", EditorStringName(EditorFonts), (int(EDITOR_GET("text_editor/help/help_source_font_size")) - 1) * EDSCALE);

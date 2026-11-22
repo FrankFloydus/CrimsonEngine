@@ -89,14 +89,12 @@ uint32_t EditorThemeManager::ThemeConfiguration::hash() {
 
 	hash = hash_murmur3_one_32((int)dark_theme, hash);
 	hash = hash_murmur3_one_32((int)dark_icon_and_font, hash);
-	hash = hash_murmur3_one_32(style == "Modern" && is_crimson_preset(), hash);
 
 	return hash;
 }
 
 uint32_t EditorThemeManager::ThemeConfiguration::hash_fonts() {
 	uint32_t hash = hash_murmur3_one_float(EDSCALE);
-	hash = hash_murmur3_one_32(style != "Classic" && is_crimson_preset(), hash);
 
 	// TODO: Implement the hash based on what editor_register_fonts() uses.
 
@@ -113,7 +111,6 @@ uint32_t EditorThemeManager::ThemeConfiguration::hash_icons() {
 	hash = hash_murmur3_one_float(gizmo_handle_scale, hash);
 
 	hash = hash_murmur3_one_32((int)dark_icon_and_font, hash);
-	hash = hash_murmur3_one_32(style == "Modern" && is_crimson_preset(), hash);
 
 	return hash;
 }
@@ -202,7 +199,7 @@ Ref<EditorTheme> EditorThemeManager::_create_base_theme(const Ref<EditorTheme> &
 			editor_copy_icons(theme, p_old_theme);
 		} else {
 			print_verbose("EditorTheme: Generating new icons.");
-			editor_register_icons(theme, config.dark_icon_and_font, config.icon_saturation, config.thumb_size, config.gizmo_handle_scale, is_default_style && config.is_crimson_preset());
+			editor_register_icons(theme, config.dark_icon_and_font, config.icon_saturation, config.thumb_size, config.gizmo_handle_scale);
 		}
 
 		OS::get_singleton()->benchmark_end_measure(get_benchmark_key(), "Register Icons");
@@ -216,7 +213,7 @@ Ref<EditorTheme> EditorThemeManager::_create_base_theme(const Ref<EditorTheme> &
 
 		// External function, see editor_fonts.cpp.
 		print_verbose("EditorTheme: Generating new fonts.");
-		editor_register_fonts(theme, config.style != "Classic" && config.is_crimson_preset());
+		editor_register_fonts(theme);
 
 		OS::get_singleton()->benchmark_end_measure(get_benchmark_key(), "Register Fonts");
 	}
@@ -277,14 +274,18 @@ EditorThemeManager::ThemeConfiguration EditorThemeManager::_create_theme_config(
 	if (config.preset != "Custom") {
 		if (config.style == "Classic") {
 			config.draw_relationship_lines = RELATIONSHIP_ALL;
+			config.corner_radius = 3;
 		} else { // Default
 			config.draw_relationship_lines = config.default_relationship_lines;
+			config.corner_radius = config.default_corner_radius;
 		}
 
 		EditorSettings::get_singleton()->set_initial_value("interface/theme/draw_relationship_lines", config.draw_relationship_lines);
+		EditorSettings::get_singleton()->set_initial_value("interface/theme/corner_radius", config.corner_radius);
 
 		// Enforce values in case they were adjusted or overridden.
 		EditorSettings::get_singleton()->set_manually("interface/theme/draw_relationship_lines", config.draw_relationship_lines);
+		EditorSettings::get_singleton()->set_manually("interface/theme/corner_radius", config.corner_radius);
 	}
 
 	// Handle color preset.
@@ -332,11 +333,6 @@ EditorThemeManager::ThemeConfiguration EditorThemeManager::_create_theme_config(
 			} else if (config.preset == "Breeze Dark") {
 				preset_accent_color = Color(0.239, 0.682, 0.914);
 				preset_base_color = Color(0.1255, 0.1373, 0.149);
-			} else if (config.is_crimson_preset()) {
-				preset_accent_color = Color::hex(0xee7186ff);
-				preset_base_color = Color::hex(0x19191bff);
-				preset_contrast = 0.22;
-				preset_icon_saturation = 0.92;
 			} else if (config.preset == "Godot 2") {
 				preset_accent_color = Color(0.53, 0.67, 0.89);
 				preset_base_color = Color(0.24, 0.23, 0.27);
@@ -361,7 +357,7 @@ EditorThemeManager::ThemeConfiguration EditorThemeManager::_create_theme_config(
 				preset_accent_color = Color(0.15, 0.55, 0.82);
 				preset_base_color = Color(0.89, 0.86, 0.79);
 				preset_contrast = light_contrast;
-			} else { // Godot
+			} else { // Default
 				preset_accent_color = Color(0.337, 0.62, 1.0);
 				preset_base_color = Color(0.161, 0.161, 0.161);
 			}
@@ -371,18 +367,12 @@ EditorThemeManager::ThemeConfiguration EditorThemeManager::_create_theme_config(
 			config.contrast = preset_contrast;
 			config.draw_extra_borders = preset_draw_extra_borders;
 			config.icon_saturation = preset_icon_saturation;
-			config.corner_radius = config.style == "Classic" ? 3 : config.default_corner_radius;
-			if (config.style == "Modern" && config.is_crimson_preset()) {
-				config.corner_radius = 5;
-			}
 
 			EditorSettings::get_singleton()->set_initial_value("interface/theme/accent_color", config.accent_color);
 			EditorSettings::get_singleton()->set_initial_value("interface/theme/base_color", config.base_color);
 			EditorSettings::get_singleton()->set_initial_value("interface/theme/contrast", config.contrast);
 			EditorSettings::get_singleton()->set_initial_value("interface/theme/draw_extra_borders", config.draw_extra_borders);
 			EditorSettings::get_singleton()->set_initial_value("interface/theme/icon_saturation", config.icon_saturation);
-			EditorSettings::get_singleton()->set_initial_value("interface/theme/corner_radius", config.corner_radius);
-			EditorSettings::get_singleton()->set_manually("interface/theme/corner_radius", config.corner_radius);
 		}
 
 		if (use_system_accent_color && system_accent_color != Color(0, 0, 0, 0)) {
@@ -573,12 +563,6 @@ void EditorThemeManager::_populate_text_editor_styles(const Ref<EditorTheme> &p_
 				colors["text_editor/theme/highlighting/comment_markers/critical_color"] = Color(0.8, 0.14, 0.14);
 				colors["text_editor/theme/highlighting/comment_markers/warning_color"] = Color(0.75, 0.39, 0.03);
 				colors["text_editor/theme/highlighting/comment_markers/notice_color"] = Color(0.24, 0.54, 0.09);
-			}
-			if (is_default_theme && p_config.dark_icon_and_font && p_config.is_crimson_preset()) {
-				const HashMap<StringName, Color> crimson_colors = EditorSettings::get_crimson_text_editor_theme();
-				for (const KeyValue<StringName, Color> &setting : crimson_colors) {
-					colors[setting.key] = setting.value;
-				}
 			}
 		} else if (is_godot2_theme) {
 			colors = EditorSettings::get_godot2_text_editor_theme();

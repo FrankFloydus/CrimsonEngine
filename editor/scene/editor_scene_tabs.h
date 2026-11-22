@@ -59,7 +59,6 @@ public:
 	};
 
 private:
-	bool use_document_style = false;
 	PanelContainer *tabbar_panel = nullptr;
 	HBoxContainer *tabbar_container = nullptr;
 
@@ -114,5 +113,5 @@ public:
 
 	void update_scene_tabs();
 
-	explicit EditorSceneTabs(bool p_use_document_style = false);
+	EditorSceneTabs();
 };

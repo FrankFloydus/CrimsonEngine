@@ -53,14 +53,11 @@
 #include "scene/gui/popup_menu.h"
 #include "scene/gui/tab_bar.h"
 #include "scene/gui/texture_rect.h"
-#include "scene/resources/style_box.h"
 
 void EditorSceneTabs::_notification(int p_what) {
 	switch (p_what) {
 		case NOTIFICATION_THEME_CHANGED: {
-			if (!use_document_style) {
-				tabbar_panel->add_theme_style_override(SceneStringName(panel), get_theme_stylebox(SNAME("tabbar_background"), SNAME("TabContainer")));
-			}
+			tabbar_panel->add_theme_style_override(SceneStringName(panel), get_theme_stylebox(SNAME("tabbar_background"), SNAME("TabContainer")));
 			scene_tabs->add_theme_constant_override("icon_max_width", get_theme_constant(SNAME("class_icon_size"), EditorStringName(Editor)));
 
 			scene_list->set_button_icon(get_editor_theme_icon(SNAME("GuiTabMenuHl")));
@@ -324,9 +321,7 @@ void EditorSceneTabs::_update_tab_titles() {
 		scene_tabs->set_tab_icon(i, icon);
 
 		bool unsaved = EditorUndoRedoManager::get_singleton()->is_history_unsaved(EditorNode::get_editor_data().get_scene_history_id(i));
-		const bool untitled = use_document_style && !type_node;
-		const String title = untitled ? TTR("Untitled") : disambiguated_scene_names[i];
-		scene_tabs->set_tab_title(i, title + (unsaved ? "(*)" : ""));
+		scene_tabs->set_tab_title(i, disambiguated_scene_names[i] + (unsaved ? "(*)" : ""));
 
 		if (!main_scene_path.is_empty() && main_scene_path == EditorNode::get_editor_data().get_scene_path(i)) {
 			scene_tabs->set_font_color_override(i, TabBar::DRAW_DISABLED, get_theme_color(SNAME("accent_color"), EditorStringName(Editor)) * Color(1, 1, 1, 0.7));
@@ -334,17 +329,16 @@ void EditorSceneTabs::_update_tab_titles() {
 			scene_tabs->set_font_color_override(i, TabBar::DRAW_HOVER, get_theme_color(SNAME("accent_color"), EditorStringName(Editor)));
 			scene_tabs->set_font_color_override(i, TabBar::DRAW_PRESSED, get_theme_color(SNAME("accent_color"), EditorStringName(Editor)));
 		} else {
-			scene_tabs->set_font_color_override(i, TabBar::DRAW_DISABLED, scene_tabs->get_theme_color(SNAME("font_disabled_color")));
-			scene_tabs->set_font_color_override(i, TabBar::DRAW_NORMAL, scene_tabs->get_theme_color(SNAME("font_unselected_color")));
-			scene_tabs->set_font_color_override(i, TabBar::DRAW_HOVER, scene_tabs->get_theme_color(SNAME("font_hovered_color")));
-			scene_tabs->set_font_color_override(i, TabBar::DRAW_PRESSED, scene_tabs->get_theme_color(SNAME("font_selected_color")));
+			scene_tabs->set_font_color_override(i, TabBar::DRAW_DISABLED, get_theme_color(SNAME("font_disabled_color"), SNAME("TabBar")));
+			scene_tabs->set_font_color_override(i, TabBar::DRAW_NORMAL, get_theme_color(SNAME("font_unselected_color"), SNAME("TabBar")));
+			scene_tabs->set_font_color_override(i, TabBar::DRAW_HOVER, get_theme_color(SNAME("font_hovered_color"), SNAME("TabBar")));
+			scene_tabs->set_font_color_override(i, TabBar::DRAW_PRESSED, get_theme_color(SNAME("font_selected_color"), SNAME("TabBar")));
 		}
 
 		if (NativeMenu::get_singleton()->has_feature(NativeMenu::FEATURE_GLOBAL_MENU)) {
 			RID dock_rid = NativeMenu::get_singleton()->get_system_menu(NativeMenu::DOCK_MENU_ID);
 			int global_menu_index = scene_tabs->get_tab_metadata(i);
-			const String native_title = untitled ? title : EditorNode::get_editor_data().get_scene_title(i);
-			NativeMenu::get_singleton()->set_item_text(dock_rid, global_menu_index, native_title + (unsaved ? "(*)" : ""));
+			NativeMenu::get_singleton()->set_item_text(dock_rid, global_menu_index, EditorNode::get_editor_data().get_scene_title(i) + (unsaved ? "(*)" : ""));
 			NativeMenu::get_singleton()->set_item_tag(dock_rid, global_menu_index, i);
 		}
 
@@ -481,28 +475,19 @@ void EditorSceneTabs::_bind_methods() {
 	ADD_SIGNAL(MethodInfo("tab_closed", PropertyInfo(Variant::INT, "tab_index")));
 }
 
-EditorSceneTabs::EditorSceneTabs(bool p_use_document_style) :
-		use_document_style(p_use_document_style) {
+EditorSceneTabs::EditorSceneTabs() {
 	singleton = this;
 
 	set_process_shortcut_input(true);
 	set_process_unhandled_key_input(true);
 
 	tabbar_panel = memnew(PanelContainer);
-	if (use_document_style) {
-		Ref<StyleBoxEmpty> empty;
-		empty.instantiate();
-		tabbar_panel->add_theme_style_override(SceneStringName(panel), empty);
-	}
 	add_child(tabbar_panel);
 	tabbar_container = memnew(HBoxContainer);
 	tabbar_panel->add_child(tabbar_container);
 
 	scene_tabs = memnew(TabBar);
-	if (use_document_style) {
-		scene_tabs->set_theme_type_variation("CrimsonDocumentTabs");
-	}
-	scene_tabs->add_tab(use_document_style ? TTR("Untitled") : String("unsaved"));
+	scene_tabs->add_tab("unsaved");
 	scene_tabs->set_tab_close_display_policy((TabBar::CloseButtonDisplayPolicy)EDITOR_GET("interface/scene_tabs/display_close_button").operator int());
 	scene_tabs->set_max_tab_width(int(EDITOR_GET("interface/scene_tabs/maximum_width")) * EDSCALE);
 	scene_tabs->set_drag_to_rearrange_enabled(true);

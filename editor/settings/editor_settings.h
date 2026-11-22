@@ -194,7 +194,6 @@ public:
 	void load_favorites_and_recent_dirs();
 
 	static HashMap<StringName, Color> get_godot2_text_editor_theme();
-	static HashMap<StringName, Color> get_crimson_text_editor_theme();
 	static bool is_default_text_editor_theme(const String &p_theme_name);
 	void update_text_editor_themes_list();
 
