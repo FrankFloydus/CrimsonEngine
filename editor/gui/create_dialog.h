@@ -125,7 +125,7 @@ class CreateDialog : public ConfirmationDialog {
 	bool can_drop_data_fw(const Point2 &p_point, const Variant &p_data, Control *p_from) const;
 	void drop_data_fw(const Point2 &p_point, const Variant &p_data, Control *p_from);
 
-	bool _is_class_disabled_by_feature_profile(const StringName &p_class) const;
+	bool _is_type_blocked_by_editor(const StringName &p_class) const;
 	void _load_favorites_and_history();
 
 protected:
@@ -135,6 +135,8 @@ protected:
 	void _save_and_update_favorite_list();
 
 public:
+	static bool is_non_ui_2d_node(const StringName &p_type);
+
 	Variant instantiate_selected();
 	template <typename T>
 	T *instantiate_selected() { return Object::cast_to<T>(instantiate_selected().get_validated_object()); }

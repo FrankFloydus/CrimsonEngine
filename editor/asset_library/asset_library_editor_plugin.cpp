@@ -2212,9 +2212,6 @@ EditorAssetLibrary::EditorAssetLibrary(bool p_templates_only) {
 	set_icon_name("AssetStore");
 	set_available_layouts(EditorDock::DOCK_LAYOUT_MAIN_SCREEN | EditorDock::DOCK_LAYOUT_FLOATING);
 	set_default_slot(EditorDock::DOCK_SLOT_MAIN_SCREEN);
-	if (!Engine::get_singleton()->is_project_manager_hint()) {
-		set_dock_shortcut(ED_GET_SHORTCUT("editor/editor_asset_store"));
-	}
 	templates_only = p_templates_only;
 	loading_blocked = ((int)EDITOR_GET("network/connection/network_mode") == EditorSettings::NETWORK_OFFLINE);
 

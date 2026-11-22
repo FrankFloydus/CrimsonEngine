@@ -326,19 +326,22 @@ void EditorDock::update_tab_style() {
 	if (icon.is_null()) {
 		icon = get_effective_icon(callable_mp((Control *)this, &Control::get_editor_theme_icon));
 	}
+	const String dock_title = get_display_title();
+	const bool is_ui_workspace = current_layout == DOCK_LAYOUT_MAIN_SCREEN && icon_name == SNAME("2D") && dock_title == "2D";
+	const String tab_title = is_ui_workspace ? TTRC("UI") : dock_title;
 	bool assign_icon = force_show_icon;
 	String tooltip;
 	switch (parent_dock_container->get_tab_style()) {
 		case DockTabContainer::TabStyle::TEXT_ONLY: {
-			parent_dock_container->set_tab_title(index, get_display_title());
+			parent_dock_container->set_tab_title(index, tab_title);
 		} break;
 		case DockTabContainer::TabStyle::ICON_ONLY: {
-			parent_dock_container->set_tab_title(index, icon.is_valid() ? String() : get_display_title());
-			tooltip = TTR(get_display_title());
+			parent_dock_container->set_tab_title(index, icon.is_valid() ? String() : tab_title);
+			tooltip = is_ui_workspace ? TTR("User Interface") : TTR(dock_title);
 			assign_icon = true;
 		} break;
 		case DockTabContainer::TabStyle::TEXT_AND_ICON: {
-			parent_dock_container->set_tab_title(index, get_display_title());
+			parent_dock_container->set_tab_title(index, tab_title);
 			parent_dock_container->set_tab_tooltip(index, String());
 			assign_icon = true;
 		} break;

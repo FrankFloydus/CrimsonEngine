@@ -124,6 +124,9 @@ void CreateDialog::_fill_type_list() {
 
 			const Vector<EditorData::CustomType> &ct = ed.get_custom_types()[type];
 			for (int i = 0; i < ct.size(); i++) {
+				if (_is_type_blocked_by_editor(ct[i].name)) {
+					continue;
+				}
 				custom_type_parents[ct[i].name] = type;
 				custom_type_indices[ct[i].name] = i;
 
@@ -171,14 +174,38 @@ void CreateDialog::_script_button_clicked(TreeItem *p_item, int p_column, int p_
 	_cleanup();
 }
 
-bool CreateDialog::_is_class_disabled_by_feature_profile(const StringName &p_class) const {
+bool CreateDialog::is_non_ui_2d_node(const StringName &p_type) {
+	StringName native_type = p_type;
+	if (ScriptServer::is_global_class(p_type)) {
+		native_type = ScriptServer::get_global_class_native_base(p_type);
+	} else if (!ClassDB::class_exists(p_type)) {
+		const EditorData::CustomType *custom_type = EditorNode::get_editor_data().get_custom_type_by_name(p_type);
+		if (!custom_type || custom_type->script.is_null()) {
+			return false;
+		}
+		native_type = custom_type->script->get_instance_base_type();
+	}
+
+	// These CanvasItem nodes support UI composites, screen sampling and touch input.
+	return ClassDB::is_parent_class(native_type, SNAME("ParallaxBackground")) ||
+			(ClassDB::is_parent_class(native_type, SNAME("CanvasItem")) &&
+					!ClassDB::is_parent_class(native_type, SNAME("Control")) &&
+					!ClassDB::is_parent_class(native_type, SNAME("CanvasGroup")) &&
+					!ClassDB::is_parent_class(native_type, SNAME("BackBufferCopy")) &&
+					!ClassDB::is_parent_class(native_type, SNAME("TouchScreenButton")));
+}
+
+bool CreateDialog::_is_type_blocked_by_editor(const StringName &p_class) const {
+	if (!allow_abstract_scripts && is_non_ui_2d_node(p_class)) {
+		return true;
+	}
 	Ref<EditorFeatureProfile> profile = EditorFeatureProfileManager::get_singleton()->get_current_profile();
 
 	return profile.is_valid() && profile->is_class_disabled(p_class);
 }
 
 bool CreateDialog::_should_hide_type(const StringName &p_type) const {
-	if (_is_class_disabled_by_feature_profile(p_type)) {
+	if (_is_type_blocked_by_editor(p_type)) {
 		return true;
 	}
 
@@ -450,7 +477,7 @@ void CreateDialog::_configure_search_option_item(TreeItem *r_item, const StringN
 
 	bool can_instantiate = (p_type_category == TypeCategory::CPP_TYPE && ClassDB::can_instantiate(p_type)) ||
 			(p_type_category == TypeCategory::OTHER_TYPE && !(!allow_abstract_scripts && is_abstract));
-	bool instantiable = can_instantiate && !(ClassDB::class_exists(p_type) && ClassDB::is_virtual(p_type));
+	bool instantiable = can_instantiate && !(ClassDB::class_exists(p_type) && ClassDB::is_virtual(p_type)) && !_is_type_blocked_by_editor(p_type);
 
 	r_item->set_meta(SNAME("__instantiable"), instantiable);
 
@@ -936,7 +963,7 @@ void CreateDialog::_save_and_update_favorite_list() {
 				}
 				f->store_line(name);
 
-				if (_is_class_disabled_by_feature_profile(name)) {
+				if (_is_type_blocked_by_editor(name)) {
 					continue;
 				}
 
@@ -957,7 +984,7 @@ void CreateDialog::_load_favorites_and_history() {
 		while (!f->eof_reached()) {
 			String name = f->get_line().strip_edges();
 
-			if (EditorNode::get_editor_data().is_type_recognized(name) && !_is_class_disabled_by_feature_profile(name)) {
+			if (EditorNode::get_editor_data().is_type_recognized(name) && !_is_type_blocked_by_editor(name)) {
 				recent->add_item(name, EditorNode::get_singleton()->get_class_icon(name));
 			}
 		}

@@ -79,18 +79,7 @@
 #include "editor/inspector/input_event_editor_plugin.h"
 #include "editor/inspector/sub_viewport_preview_editor_plugin.h"
 #include "editor/inspector/tool_button_editor_plugin.h"
-#include "editor/scene/2d/camera_2d_editor_plugin.h"
-#include "editor/scene/2d/light_occluder_2d_editor_plugin.h"
-#include "editor/scene/2d/line_2d_editor_plugin.h"
-#include "editor/scene/2d/particles_2d_editor_plugin.h"
-#include "editor/scene/2d/path_2d_editor_plugin.h"
-#include "editor/scene/2d/physics/cast_2d_editor_plugin.h"
-#include "editor/scene/2d/physics/collision_polygon_2d_editor_plugin.h"
-#include "editor/scene/2d/physics/collision_shape_2d_editor_plugin.h"
-#include "editor/scene/2d/polygon_2d_editor_plugin.h"
 #include "editor/scene/2d/scene_paint_2d_editor_plugin.h"
-#include "editor/scene/2d/skeleton_2d_editor_plugin.h"
-#include "editor/scene/2d/sprite_2d_editor_plugin.h"
 #include "editor/scene/3d/bone_map_editor_plugin.h"
 #include "editor/scene/3d/camera_3d_editor_plugin.h"
 #include "editor/scene/3d/gpu_particles_collision_sdf_editor_plugin.h"
@@ -139,7 +128,6 @@
 #include "servers/rendering/rendering_server.h"
 
 #ifndef DISABLE_DEPRECATED
-#include "editor/scene/2d/parallax_background_editor_plugin.h"
 #include "editor/scene/3d/skeleton_ik_3d_editor_plugin.h"
 #endif
 
@@ -224,7 +212,7 @@ void register_editor_types() {
 	GDREGISTER_CLASS(ResourceImporterWAV);
 	GDREGISTER_CLASS(ResourceImporterStreamedTexture);
 
-	// This list is alphabetized, and plugins that depend on Node2D or Node3D are in their own section below.
+	// General and UI plugins are alphabetized. Node3D plugins are in their own section below.
 	EditorPlugins::add_by_type<AnimationTreeEditorPlugin>();
 	EditorPlugins::add_by_type<AudioStreamRandomizerEditorPlugin>();
 	EditorPlugins::add_by_type<BitMapEditorPlugin>();
@@ -254,25 +242,6 @@ void register_editor_types() {
 	EditorPlugins::add_by_type<ThemeEditorPlugin>();
 	EditorPlugins::add_by_type<ToolButtonEditorPlugin>();
 	EditorPlugins::add_by_type<VirtualJoystickEditorPlugin>();
-
-	// Node2D-based editor plugins.
-	EditorPlugins::add_by_type<Camera2DEditorPlugin>();
-	EditorPlugins::add_by_type<CPUParticles2DEditorPlugin>();
-	EditorPlugins::add_by_type<GPUParticles2DEditorPlugin>();
-	EditorPlugins::add_by_type<LightOccluder2DEditorPlugin>();
-	EditorPlugins::add_by_type<Line2DEditorPlugin>();
-	EditorPlugins::add_by_type<Path2DEditorPlugin>();
-	EditorPlugins::add_by_type<Polygon2DEditorPlugin>();
-	EditorPlugins::add_by_type<Skeleton2DEditorPlugin>();
-	EditorPlugins::add_by_type<Sprite2DEditorPlugin>();
-	EditorPlugins::add_by_type<ScenePaint2DEditorPlugin>();
-	// 2D physics editor plugins.
-	EditorPlugins::add_by_type<Cast2DEditorPlugin>();
-	EditorPlugins::add_by_type<CollisionPolygon2DEditorPlugin>();
-	EditorPlugins::add_by_type<CollisionShape2DEditorPlugin>();
-#ifndef DISABLE_DEPRECATED
-	EditorPlugins::add_by_type<ParallaxBackgroundEditorPlugin>();
-#endif
 
 	// 3D editor plugins.
 	EditorPlugins::add_by_type<BoneMapEditorPlugin>();

@@ -36,10 +36,6 @@
 #include "tile_map_layer.h"
 #include "tile_set.h"
 
-#ifdef TOOLS_ENABLED
-#include "editor/tiles_editor_plugin.h"
-#endif
-
 #include "core/object/class_db.h"
 
 void initialize_tilemap_module(ModuleInitializationLevel p_level) {
@@ -62,12 +58,6 @@ void initialize_tilemap_module(ModuleInitializationLevel p_level) {
 #endif
 #endif // NAVIGATION_2D_DISABLED
 	}
-#ifdef TOOLS_ENABLED
-	if (p_level == MODULE_INITIALIZATION_LEVEL_EDITOR) {
-		EditorPlugins::add_by_type<TileSetEditorPlugin>();
-		EditorPlugins::add_by_type<TileMapEditorPlugin>();
-	}
-#endif
 }
 
 void uninitialize_tilemap_module(ModuleInitializationLevel p_level) {}

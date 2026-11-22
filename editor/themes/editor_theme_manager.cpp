@@ -89,6 +89,7 @@ uint32_t EditorThemeManager::ThemeConfiguration::hash() {
 
 	hash = hash_murmur3_one_32((int)dark_theme, hash);
 	hash = hash_murmur3_one_32((int)dark_icon_and_font, hash);
+	hash = hash_murmur3_one_32(style == "Modern" && is_crimson_preset(), hash);
 
 	return hash;
 }
@@ -112,6 +113,7 @@ uint32_t EditorThemeManager::ThemeConfiguration::hash_icons() {
 	hash = hash_murmur3_one_float(gizmo_handle_scale, hash);
 
 	hash = hash_murmur3_one_32((int)dark_icon_and_font, hash);
+	hash = hash_murmur3_one_32(style == "Modern" && is_crimson_preset(), hash);
 
 	return hash;
 }
@@ -200,7 +202,7 @@ Ref<EditorTheme> EditorThemeManager::_create_base_theme(const Ref<EditorTheme> &
 			editor_copy_icons(theme, p_old_theme);
 		} else {
 			print_verbose("EditorTheme: Generating new icons.");
-			editor_register_icons(theme, config.dark_icon_and_font, config.icon_saturation, config.thumb_size, config.gizmo_handle_scale);
+			editor_register_icons(theme, config.dark_icon_and_font, config.icon_saturation, config.thumb_size, config.gizmo_handle_scale, is_default_style && config.is_crimson_preset());
 		}
 
 		OS::get_singleton()->benchmark_end_measure(get_benchmark_key(), "Register Icons");

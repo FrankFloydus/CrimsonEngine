@@ -405,6 +405,7 @@ class EditorInspectorCategory : public Control {
 		int horizontal_separation = 0;
 		int vertical_separation = 0;
 		int class_icon_size = 0;
+		int leading_margin = 0;
 
 		Color font_color;
 
@@ -553,6 +554,7 @@ class EditorInspectorSection : public Container {
 		Ref<Texture2D> help_icon;
 
 		Ref<StyleBoxFlat> indent_box;
+		Ref<StyleBox> header_hover;
 		Ref<StyleBoxFlat> icon_hover;
 	} theme_cache;
 

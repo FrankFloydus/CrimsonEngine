@@ -693,11 +693,11 @@ void SceneTreeDock::_tool_selected(int p_tool, bool p_confirm_override) {
 
 			// Prefer nodes that inherit from the current scene root.
 			Node *current_edited_scene_root = EditorNode::get_singleton()->get_edited_scene();
+			create_dialog->set_preferred_search_result_type(String());
 			if (current_edited_scene_root) {
 				static Vector<String> preferred_types;
 				if (preferred_types.is_empty()) {
 					preferred_types.push_back("Control");
-					preferred_types.push_back("Node2D");
 					preferred_types.push_back("Node3D");
 				}
 
@@ -1584,7 +1584,6 @@ void SceneTreeDock::_tool_selected(int p_tool, bool p_confirm_override) {
 				undo_redo->commit_action();
 			}
 		} break;
-		case TOOL_CREATE_2D_SCENE:
 		case TOOL_CREATE_3D_SCENE:
 		case TOOL_CREATE_USER_INTERFACE:
 		case TOOL_CREATE_FAVORITE: {
@@ -1592,6 +1591,9 @@ void SceneTreeDock::_tool_selected(int p_tool, bool p_confirm_override) {
 
 			if (TOOL_CREATE_FAVORITE == p_tool) {
 				String name = selected_favorite_root.get_slicec(' ', 0);
+				if (CreateDialog::is_non_ui_2d_node(name)) {
+					break;
+				}
 				if (ScriptServer::is_global_class(name)) {
 					Ref<Script> scr = ResourceLoader::load(ScriptServer::get_global_class_path(name), "Script");
 					if (scr.is_valid()) {
@@ -1611,9 +1613,6 @@ void SceneTreeDock::_tool_selected(int p_tool, bool p_confirm_override) {
 				}
 			} else {
 				switch (p_tool) {
-					case TOOL_CREATE_2D_SCENE:
-						new_node = memnew(Node2D);
-						break;
 					case TOOL_CREATE_3D_SCENE:
 						new_node = memnew(Node3D);
 						break;
@@ -1743,12 +1742,6 @@ void SceneTreeDock::_notification(int p_what) {
 			beginner_node_shortcuts = memnew(VBoxContainer);
 			node_shortcuts->add_child(beginner_node_shortcuts);
 
-			button_2d = memnew(Button);
-			beginner_node_shortcuts->add_child(button_2d);
-			button_2d->set_text(TTRC("2D Scene"));
-			button_2d->set_button_icon(get_editor_theme_icon(SNAME("Node2D")));
-			button_2d->connect(SceneStringName(pressed), callable_mp(this, &SceneTreeDock::_tool_selected).bind(TOOL_CREATE_2D_SCENE, false));
-
 			button_3d = memnew(Button);
 			beginner_node_shortcuts->add_child(button_3d);
 			button_3d->set_text(TTRC("3D Scene"));
@@ -1814,9 +1807,6 @@ void SceneTreeDock::_notification(int p_what) {
 			filter->set_right_icon(get_editor_theme_icon(SNAME("Search")));
 
 			// These buttons are created on READY, because reasons...
-			if (button_2d) {
-				button_2d->set_button_icon(get_editor_theme_icon(SNAME("Node2D")));
-			}
 			if (button_3d) {
 				button_3d->set_button_icon(get_editor_theme_icon(SNAME("Node3D")));
 			}
@@ -4978,7 +4968,7 @@ void SceneTreeDock::_update_create_root_dialog(bool p_initializing) {
 			while (!f->eof_reached()) {
 				String l = f->get_line().strip_edges();
 
-				if (!l.is_empty()) {
+				if (!l.is_empty() && !CreateDialog::is_non_ui_2d_node(l.get_slicec(' ', 0))) {
 					Button *button = memnew(Button);
 					favorite_node_shortcuts->add_child(button);
 					favorite_node_shortcuts_empty = false;

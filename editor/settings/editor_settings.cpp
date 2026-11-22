@@ -1368,7 +1368,6 @@ void EditorSettings::_handle_setting_compatibility() {
 	_rename_setting("interface/editors/derive_script_globals_by_name", "docks/scene_tree/derive_script_globals_by_name");
 
 	// Handle renamed shortcuts.
-	_rename_shortcut("editor/editor_assetlib", "editor/editor_asset_store");
 	_rename_shortcut("script_editor/window_move_up", "script_editor/move_document_up");
 	_rename_shortcut("script_editor/window_move_down", "script_editor/move_document_down");
 	_rename_shortcut("script_editor/window_sort", "script_editor/sort_documents");

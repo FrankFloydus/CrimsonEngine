@@ -53,7 +53,6 @@ class SceneCreateDialog : public ConfirmationDialog {
 
 public:
 	enum RootType {
-		ROOT_2D_SCENE,
 		ROOT_3D_SCENE,
 		ROOT_USER_INTERFACE,
 		ROOT_OTHER,
@@ -65,7 +64,6 @@ private:
 	String root_name;
 
 	Ref<ButtonGroup> node_type_group;
-	CheckBox *node_type_2d = nullptr;
 	CheckBox *node_type_3d = nullptr;
 	CheckBox *node_type_gui = nullptr;
 	CheckBox *node_type_other = nullptr;

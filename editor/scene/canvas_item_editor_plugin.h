@@ -129,8 +129,6 @@ private:
 		VIEW_CENTER_TO_SELECTION,
 		VIEW_FRAME_TO_SELECTION,
 		PREVIEW_CANVAS_SCALE,
-		SKELETON_MAKE_BONES,
-		SKELETON_SHOW_BONES,
 		AUTO_RESAMPLE_CANVAS_ITEMS,
 	};
 
@@ -212,29 +210,6 @@ private:
 	};
 	Vector<_HoverResult> hovering_results;
 
-	struct BoneList {
-		Transform2D xform;
-		real_t length = 0;
-		uint64_t last_pass = 0;
-	};
-
-	uint64_t bone_last_frame = 0;
-
-	struct BoneKey {
-		ObjectID from;
-		ObjectID to;
-		_FORCE_INLINE_ bool operator<(const BoneKey &p_key) const {
-			if (from == p_key.from) {
-				return to < p_key.to;
-			} else {
-				return from < p_key.from;
-			}
-		}
-	};
-
-	HashMap<BoneKey, BoneList> bone_list;
-	MenuButton *skeleton_menu = nullptr;
-
 	struct PoseClipboard {
 		Vector2 pos;
 		Vector2 scale;
@@ -246,7 +221,6 @@ private:
 	Button *select_button = nullptr;
 
 	Button *move_button = nullptr;
-	Button *scene_paint_button = nullptr;
 	Button *scale_button = nullptr;
 	Button *rotate_button = nullptr;
 
@@ -428,8 +402,6 @@ private:
 	HSplitContainer *right_panel_split = nullptr;
 	VSplitContainer *bottom_split = nullptr;
 
-	void _set_owner_for_node_and_children(Node *p_node, Node *p_owner);
-
 	friend class CanvasItemEditorPlugin;
 
 protected:
@@ -577,9 +549,7 @@ class CanvasItemEditorViewport : public Control {
 
 	bool _is_any_texture_selected() const;
 	void _create_texture_node(Node *p_parent, Node *p_child, const String &p_path, const Point2 &p_point);
-	void _create_audio_node(Node *p_parent, const String &p_path, const Point2 &p_point);
 	bool _create_instance(Node *p_parent, const String &p_path, const Point2 &p_point);
-	void _create_mesh_node(Node *p_parent, const String &p_path, const Point2 &p_point);
 	void _create_script_node(Node *p_parent, const String &p_path, const Point2 &p_point);
 	void _perform_drop_data();
 	void _show_texture_node_type_selector();

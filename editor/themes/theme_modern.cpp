@@ -238,11 +238,11 @@ void ThemeModern::populate_shared_styles(const Ref<EditorTheme> &p_theme, Editor
 		p_config.separator_color = p_config.dark_theme ? Color(0, 0, 0, 0.4) : Color(0, 0, 0, 0.2);
 		if (use_crimson_colors) {
 			p_config.surface_popup_color = Color::hex(0x212122ff);
-			p_config.surface_lowest_color = Color::hex(0x0f0f11ff);
-			p_config.surface_lower_color = p_config.dark_color_1;
-			p_config.surface_low_color = Color::hex(0x161618ff);
+			p_config.surface_lowest_color = Color::hex(0x101113ff);
+			p_config.surface_lower_color = Color::hex(0x131416ff);
+			p_config.surface_low_color = Color::hex(0x161719ff);
 			p_config.surface_base_color = p_config.base_color;
-			p_config.surface_high_color = Color::hex(0x1e1f21ff);
+			p_config.surface_high_color = Color::hex(0x1c1d20ff);
 			p_config.surface_higher_color = Color::hex(0x232326ff);
 			p_config.surface_highest_color = Color::hex(0x2a2a2dff);
 
@@ -250,16 +250,16 @@ void ThemeModern::populate_shared_styles(const Ref<EditorTheme> &p_theme, Editor
 			p_config.button_hover_color = p_config.surface_highest_color;
 			p_config.button_pressed_color = Color::hex(0x323235ff);
 			p_config.button_disabled_color = p_config.surface_low_color;
-			p_config.button_border_normal_color = p_config.dark_color_3;
+			p_config.button_border_normal_color = Color::hex(0x2b2c30ff);
 			p_config.button_border_hover_color = Color::hex(0x48484cff);
 			p_config.button_border_pressed_color = Color::hex(0x535358ff);
 
-			p_config.flat_button_hover_color = p_config.surface_higher_color;
-			p_config.flat_button_pressed_color = Color::hex(0x232325ff);
+			p_config.flat_button_hover_color = p_config.surface_high_color;
+			p_config.flat_button_pressed_color = Color::hex(0x242528ff);
 			p_config.flat_button_hover_pressed_color = p_config.surface_highest_color;
 			p_config.shadow_color = Color(0, 0, 0, 0.30);
 			p_config.selection_color = Color(p_config.accent_color, 0.22);
-			p_config.separator_color = Color::hex(0x252527ff);
+			p_config.separator_color = Color::hex(0x25262aff);
 		}
 
 		p_theme->set_color("selection_color", EditorStringName(Editor), p_config.selection_color);
@@ -731,7 +731,7 @@ void ThemeModern::populate_standard_styles(const Ref<EditorTheme> &p_theme, Edit
 			p_theme->set_stylebox("custom_button_pressed", "Tree", style_button_pressed);
 
 			p_theme->set_color("custom_button_font_highlight", "Tree", p_config.font_hover_color);
-			p_theme->set_color(SceneStringName(font_color), "Tree", p_config.font_color);
+			p_theme->set_color(SceneStringName(font_color), "Tree", use_crimson_colors ? p_config.font_secondary_color.lerp(p_config.font_color, 0.42) : p_config.font_color);
 			p_theme->set_color("font_hovered_color", "Tree", p_config.font_hover_color);
 			p_theme->set_color("font_hovered_dimmed_color", "Tree", p_config.font_hover_color);
 			const Color tree_selected_text = use_crimson_colors ? p_config.font_color : p_config.mono_color_font;
@@ -746,7 +746,7 @@ void ThemeModern::populate_standard_styles(const Ref<EditorTheme> &p_theme, Edit
 			p_theme->set_constant("h_separation", "Tree", EDSCALE_RND(p_config.increased_margin + 2));
 			p_theme->set_constant("guide_width", "Tree", p_config.border_width);
 			p_theme->set_constant("item_margin", "Tree", EDSCALE_RND(MAX(3 * p_config.increased_margin, 12)));
-			const float row_margin = use_crimson_colors && !p_config.enable_touch_optimizations ? 0.95 : 0.75;
+			const float row_margin = use_crimson_colors && !p_config.enable_touch_optimizations ? 0.72 : 0.75;
 			p_theme->set_constant("inner_item_margin_top", "Tree", EDSCALE_RND(p_config.base_margin * row_margin));
 			p_theme->set_constant("inner_item_margin_bottom", "Tree", EDSCALE_RND(p_config.base_margin * row_margin));
 			p_theme->set_constant("inner_item_margin_left", "Tree", EDSCALE_RND(p_config.base_margin));
@@ -900,7 +900,7 @@ void ThemeModern::populate_standard_styles(const Ref<EditorTheme> &p_theme, Edit
 	{
 		const bool use_compact_tabs = use_crimson_colors && !p_config.enable_touch_optimizations && (p_config.spacing_preset == "Default" || p_config.spacing_preset == "Compact");
 		const int tab_horizontal_margin = EDSCALE_RND(p_config.base_margin * (use_compact_tabs ? 1.5 : 4.0));
-		const int tab_vertical_margin = EDSCALE_RND(p_config.base_margin * (use_compact_tabs ? 1.5 : 2.1));
+		const int tab_vertical_margin = EDSCALE_RND(p_config.base_margin * (use_compact_tabs ? 1.15 : 2.1));
 		Ref<StyleBoxFlat> style_tab_selected = p_config.base_style->duplicate();
 		style_tab_selected->set_content_margin_individual(tab_horizontal_margin, tab_vertical_margin, tab_horizontal_margin, tab_vertical_margin);
 		style_tab_selected->set_corner_radius_individual(EDSCALE_RND(p_config.corner_radius), EDSCALE_RND(p_config.corner_radius), 0, 0);
@@ -922,7 +922,7 @@ void ThemeModern::populate_standard_styles(const Ref<EditorTheme> &p_theme, Edit
 			style_tab_selected->set_corner_radius_all(0);
 			style_tab_selected->set_border_width_all(0);
 			style_tab_selected->set_border_width(SIDE_BOTTOM, MAX(1, EDSCALE_RND(1)));
-			style_tab_selected->set_border_color(p_config.font_focus_color);
+			style_tab_selected->set_border_color(p_config.font_secondary_color);
 		}
 
 		Color drop_mark_color = p_config.dark_color_2.lerp(p_config.accent_color, 0.75);
@@ -942,7 +942,12 @@ void ThemeModern::populate_standard_styles(const Ref<EditorTheme> &p_theme, Edit
 			p_theme->set_constant("tab_separation", "TabContainer", EDSCALE_RND(8));
 			p_theme->set_constant("tab_separation", "TabBar", EDSCALE_RND(8));
 			p_theme->set_type_variation("CrimsonDocumentTabs", "TabBar");
-			p_theme->set_constant("tab_separation", "CrimsonDocumentTabs", EDSCALE_RND(10));
+			p_theme->set_constant("tab_separation", "CrimsonDocumentTabs", EDSCALE_RND(4));
+			Ref<StyleBoxFlat> document_active = style_tab_selected->duplicate();
+			document_active->set_draw_center(true);
+			document_active->set_bg_color(p_config.surface_high_color);
+			document_active->set_corner_radius_individual(EDSCALE_RND(4), EDSCALE_RND(4), 0, 0);
+			p_theme->set_stylebox("tab_selected", "CrimsonDocumentTabs", document_active);
 		}
 
 		p_theme->set_stylebox("tabbar_background", "TabContainer", style_tabbar_background);
@@ -1027,12 +1032,14 @@ void ThemeModern::populate_standard_styles(const Ref<EditorTheme> &p_theme, Edit
 			text_editor_style->set_border_color(p_config.extra_border_color_1);
 		} else if (use_crimson_colors) {
 			text_editor_style->set_border_width_all(MAX(1, EDSCALE_RND(1)));
-			text_editor_style->set_border_color(p_config.dark_color_3);
+			text_editor_style->set_border_color(p_config.button_border_normal_color);
 		}
 		if (use_crimson_colors) {
-			text_editor_style->set_bg_color(p_config.surface_lowest_color);
-			text_editor_style->set_corner_radius_all(EDSCALE_RND(p_config.corner_radius));
-			text_editor_style->set_content_margin_individual(EDSCALE_RND(p_config.base_margin * 2.5), EDSCALE_RND(p_config.base_margin + 1), EDSCALE_RND(p_config.base_margin * 2.5), EDSCALE_RND(p_config.base_margin + 1));
+			text_editor_style->set_bg_color(p_config.surface_lower_color);
+			text_editor_style->set_corner_radius_all(EDSCALE_RND(5));
+			if (!p_config.enable_touch_optimizations) {
+				text_editor_style->set_content_margin_individual(EDSCALE_RND(7), EDSCALE_RND(3), EDSCALE_RND(7), EDSCALE_RND(3));
+			}
 		}
 
 		Ref<StyleBoxFlat> text_editor_disabled_style = text_editor_style->duplicate();
@@ -1208,7 +1215,7 @@ void ThemeModern::populate_standard_styles(const Ref<EditorTheme> &p_theme, Edit
 		p_theme->set_icon("menu_open_bundle", "FileDialog", p_theme->get_icon("FolderBrowse", EditorStringName(EditorIcons)));
 		// Use a different color for folder icons to make them easier to distinguish from files.
 		// On a light theme, the icon will be dark, so we need to lighten it before blending it with the accent color.
-		p_theme->set_color("folder_icon_color", "FileDialog", (p_config.dark_icon_and_font ? Color(1, 1, 1) : Color(4.25, 4.25, 4.25)).lerp(p_config.accent_color, 0.7));
+		p_theme->set_color("folder_icon_color", "FileDialog", use_crimson_colors ? p_config.font_secondary_color : (p_config.dark_icon_and_font ? Color(1, 1, 1) : Color(4.25, 4.25, 4.25)).lerp(p_config.accent_color, 0.7));
 		p_theme->set_color("file_disabled_color", "FileDialog", p_config.font_disabled_color);
 
 		p_theme->set_constant("thumbnail_size", "EditorFileDialog", p_config.thumb_size);
@@ -1828,16 +1835,24 @@ void ThemeModern::populate_editor_styles(const Ref<EditorTheme> &p_theme, Editor
 		style_bg->set_corner_radius_all(0);
 		p_theme->set_stylebox("Background", EditorStringName(EditorStyles), style_bg);
 
+		p_theme->set_type_variation("CrimsonApplicationBar", "PanelContainer");
+		Ref<StyleBoxFlat> application_bar = EditorThemeManager::make_flat_stylebox(use_crimson_colors ? p_config.surface_lower_color : p_config.surface_base_color, 8, 0, 8, 0);
+		application_bar->set_border_width(SIDE_BOTTOM, MAX(1, EDSCALE_RND(1)));
+		application_bar->set_border_color(p_config.separator_color);
+		p_theme->set_stylebox(SceneStringName(panel), "CrimsonApplicationBar", application_bar);
+
+		p_theme->set_type_variation("CrimsonWorkArea", "PanelContainer");
+		p_theme->set_stylebox(SceneStringName(panel), "CrimsonWorkArea", p_config.base_empty_style);
+
 		if (use_crimson_colors) {
-			p_theme->set_type_variation("CrimsonCommandBar", "PanelContainer");
-			Ref<StyleBoxFlat> command_bar = EditorThemeManager::make_flat_stylebox(p_config.surface_base_color, 8, 0, 8, 0);
-			command_bar->set_border_width(SIDE_BOTTOM, MAX(1, EDSCALE_RND(1)));
-			command_bar->set_border_color(p_config.separator_color);
-			p_theme->set_stylebox(SceneStringName(panel), "CrimsonCommandBar", command_bar);
+			Ref<StyleBoxFlat> work_area = EditorThemeManager::make_flat_stylebox(p_config.surface_low_color, 3, 3, 3, 3, 8);
+			work_area->set_border_width_all(MAX(1, EDSCALE_RND(1)));
+			work_area->set_border_color(p_config.separator_color);
+			p_theme->set_stylebox(SceneStringName(panel), "CrimsonWorkArea", work_area);
 
 			p_theme->set_type_variation("CrimsonWorkspaceCaption", "Label");
-			p_theme->set_font(SceneStringName(font), "CrimsonWorkspaceCaption", p_theme->get_font(SNAME("title"), EditorStringName(EditorFonts)));
-			p_theme->set_font_size(SceneStringName(font_size), "CrimsonWorkspaceCaption", p_theme->get_font_size(SNAME("main_size"), EditorStringName(EditorFonts)));
+			p_theme->set_font(SceneStringName(font), "CrimsonWorkspaceCaption", p_theme->get_font(SNAME("medium"), EditorStringName(EditorFonts)));
+			p_theme->set_font_size(SceneStringName(font_size), "CrimsonWorkspaceCaption", p_theme->get_font_size(SNAME("project_caption_size"), EditorStringName(EditorFonts)));
 			p_theme->set_color(SceneStringName(font_color), "CrimsonWorkspaceCaption", p_config.font_color);
 		}
 
@@ -1871,7 +1886,7 @@ void ThemeModern::populate_editor_styles(const Ref<EditorTheme> &p_theme, Editor
 		Ref<StyleBoxFlat> style_content_panel_vp = p_config.content_panel_style->duplicate();
 		style_content_panel_vp->set_content_margin_individual(p_config.border_width * 2, EDSCALE_RND(p_config.base_margin), p_config.border_width * 2, p_config.border_width * 2);
 		if (use_crimson_colors) {
-			style_content_panel_vp->set_bg_color(p_config.surface_lowest_color);
+			style_content_panel_vp->set_bg_color(p_config.surface_low_color);
 			style_content_panel_vp->set_content_margin_all(0);
 			style_content_panel_vp->set_corner_radius_all(0);
 			style_content_panel_vp->set_border_width_all(0);
@@ -1909,7 +1924,7 @@ void ThemeModern::populate_editor_styles(const Ref<EditorTheme> &p_theme, Editor
 		// This helps with editor usability as contextual menu items change when selecting nodes,
 		// even though it may not be immediately obvious at first.
 		Ref<StyleBoxFlat> toolbar_stylebox = p_config.base_style->duplicate();
-		toolbar_stylebox->set_bg_color(p_config.surface_higher_color);
+		toolbar_stylebox->set_bg_color(use_crimson_colors ? p_config.surface_high_color : p_config.surface_higher_color);
 		toolbar_stylebox->set_content_margin_all(0);
 		p_theme->set_stylebox("ContextualToolbar", EditorStringName(EditorStyles), toolbar_stylebox);
 
@@ -1933,22 +1948,26 @@ void ThemeModern::populate_editor_styles(const Ref<EditorTheme> &p_theme, Editor
 		p_theme->set_stylebox("tab_hovered", "MainScreenContainer", p_config.base_empty_wide_style);
 		p_theme->set_constant("tab_separation", "MainScreenContainer", 8 * EDSCALE);
 		if (use_crimson_colors) {
-			const int vertical_margin = EDSCALE_RND(p_config.enable_touch_optimizations ? 10 : p_config.base_margin + 1);
+			const int vertical_margin = EDSCALE_RND(p_config.enable_touch_optimizations ? 10 : 4);
 			Ref<StyleBoxFlat> rest_screen_tab = p_theme->get_stylebox(SNAME("tab_unselected"), SNAME("TabBar"))->duplicate();
-			rest_screen_tab->set_content_margin_individual(EDSCALE_RND(4), vertical_margin, EDSCALE_RND(4), vertical_margin);
-			Ref<StyleBoxFlat> active_screen_tab = rest_screen_tab->duplicate();
-			active_screen_tab->set_corner_radius_all(0);
+			rest_screen_tab->set_content_margin_individual(EDSCALE_RND(9), vertical_margin, EDSCALE_RND(9), vertical_margin);
+			Ref<StyleBoxFlat> hovered_screen_tab = rest_screen_tab->duplicate();
+			hovered_screen_tab->set_draw_center(true);
+			hovered_screen_tab->set_bg_color(p_config.surface_high_color);
+			hovered_screen_tab->set_corner_radius_all(EDSCALE_RND(5));
+			Ref<StyleBoxFlat> active_screen_tab = hovered_screen_tab->duplicate();
+			active_screen_tab->set_bg_color(p_config.flat_button_pressed_color);
 			active_screen_tab->set_border_width(SIDE_BOTTOM, MAX(1, EDSCALE_RND(1)));
 			active_screen_tab->set_border_color(p_config.accent_color);
 			p_theme->set_stylebox("tab_selected", "MainScreenContainer", active_screen_tab);
-			p_theme->set_stylebox("tab_hovered", "MainScreenContainer", rest_screen_tab);
+			p_theme->set_stylebox("tab_hovered", "MainScreenContainer", hovered_screen_tab);
 			p_theme->set_stylebox("tab_unselected", "MainScreenContainer", rest_screen_tab);
 			p_theme->set_color("font_selected_color", "MainScreenContainer", p_config.font_focus_color);
 			p_theme->set_color("font_hovered_color", "MainScreenContainer", p_config.font_hover_color);
 			p_theme->set_color("font_unselected_color", "MainScreenContainer", p_config.font_secondary_color);
 			p_theme->set_color("icon_selected_color", "MainScreenContainer", p_config.font_focus_color);
 			p_theme->set_color("icon_unselected_color", "MainScreenContainer", p_config.icon_secondary_color);
-			p_theme->set_constant("tab_separation", "MainScreenContainer", EDSCALE_RND(12));
+			p_theme->set_constant("tab_separation", "MainScreenContainer", EDSCALE_RND(4));
 			p_theme->set_constant("h_separation", "MainScreenContainer", EDSCALE_RND(5));
 		}
 
@@ -1973,6 +1992,9 @@ void ThemeModern::populate_editor_styles(const Ref<EditorTheme> &p_theme, Editor
 		p_theme->set_stylebox(SceneStringName(pressed), "MainMenuBar", p_config.flat_button_pressed);
 		p_theme->set_stylebox(SceneStringName(hover), "MainMenuBar", p_config.flat_button_hover);
 		p_theme->set_stylebox("hover_pressed", "MainMenuBar", p_config.flat_button_hover_pressed);
+		if (use_crimson_colors) {
+			p_theme->set_color(SceneStringName(font_color), "MainMenuBar", p_config.font_secondary_color.lerp(p_config.font_color, 0.57));
+		}
 
 		// Run bar.
 		Ref<StyleBoxFlat> run_bar_hover = p_config.base_style->duplicate();
@@ -2032,7 +2054,7 @@ void ThemeModern::populate_editor_styles(const Ref<EditorTheme> &p_theme, Editor
 		p_theme->set_stylebox("tab_selected", "BottomPanel", bottom_panel_button_pressed);
 		p_theme->set_stylebox("tab_hovered", "BottomPanel", bottom_panel_button_hover);
 		p_theme->set_stylebox("tab_unselected", "BottomPanel", style_bottom_tab);
-		p_theme->set_color("font_unselected_color", "BottomPanel", p_config.font_color);
+		p_theme->set_color("font_unselected_color", "BottomPanel", use_crimson_colors ? p_config.font_secondary_color : p_config.font_color);
 		p_theme->set_color("font_hovered_color", "BottomPanel", p_config.font_hover_color);
 		p_theme->set_color("font_selected_color", "BottomPanel", p_config.font_hover_color);
 		p_theme->set_constant("tab_separation", "BottomPanel", p_config.separation_margin);
@@ -2554,7 +2576,7 @@ void ThemeModern::populate_editor_styles(const Ref<EditorTheme> &p_theme, Editor
 
 		// Vertical separation between inspector areas.
 		p_theme->set_type_variation("EditorInspectorContainer", "VBoxContainer");
-		p_theme->set_constant("separation", "EditorInspectorContainer", EDSCALE_RND(use_crimson_colors ? p_config.base_margin * 1.5 : p_config.base_margin));
+		p_theme->set_constant("separation", "EditorInspectorContainer", EDSCALE_RND(use_crimson_colors ? p_config.base_margin * 1.1 : p_config.base_margin));
 
 		// Vertical separation between inspector sections.
 		p_theme->set_type_variation("EditorSectionContainer", "VBoxContainer");
@@ -2562,7 +2584,7 @@ void ThemeModern::populate_editor_styles(const Ref<EditorTheme> &p_theme, Editor
 
 		// Vertical separation between inspector properties.
 		p_theme->set_type_variation("EditorPropertyContainer", "VBoxContainer");
-		p_theme->set_constant("separation", "EditorPropertyContainer", EDSCALE_RND(p_config.base_margin * (use_crimson_colors ? 0.75 : 0.5)));
+		p_theme->set_constant("separation", "EditorPropertyContainer", EDSCALE_RND(p_config.base_margin * 0.5));
 
 		// EditorProperty.
 
@@ -2585,7 +2607,7 @@ void ThemeModern::populate_editor_styles(const Ref<EditorTheme> &p_theme, Editor
 		const Color readonly_color = use_crimson_colors ? p_config.font_readonly_color : property_color.lerp(p_config.dark_icon_and_font ? Color(0, 0, 0) : Color(1, 1, 1), 0.25);
 		const Color readonly_warning_color = p_config.error_color.lerp(p_config.dark_icon_and_font ? Color(0, 0, 0) : Color(1, 1, 1), 0.25);
 
-		p_theme->set_color("property_color", "EditorProperty", p_config.font_color);
+		p_theme->set_color("property_color", "EditorProperty", use_crimson_colors ? p_config.font_secondary_color.lerp(p_config.font_color, 0.45) : p_config.font_color);
 		p_theme->set_color("readonly_color", "EditorProperty", readonly_color);
 		p_theme->set_color("warning_color", "EditorProperty", p_config.warning_color);
 		p_theme->set_color("readonly_warning_color", "EditorProperty", readonly_warning_color);
@@ -2600,9 +2622,17 @@ void ThemeModern::populate_editor_styles(const Ref<EditorTheme> &p_theme, Editor
 
 		const Color inspector_section_color = use_crimson_colors ? p_config.font_secondary_color : p_config.font_color.lerp(Color(0.5, 0.5, 0.5), 0.35);
 		p_theme->set_color(SceneStringName(font_color), "EditorInspectorSection", inspector_section_color);
+		if (use_crimson_colors) {
+			p_theme->set_font(SceneStringName(font), "EditorInspectorSection", p_theme->get_font(SNAME("control"), EditorStringName(EditorFonts)));
+			p_theme->set_font_size(SceneStringName(font_size), "EditorInspectorSection", p_theme->get_font_size(SNAME("main_size"), EditorStringName(EditorFonts)));
+			p_theme->set_stylebox(SceneStringName(hover), "EditorInspectorSection", p_config.flat_button_hover);
+		}
 
 		Color inspector_indent_color = p_config.accent_color;
 		inspector_indent_color.a = 0.2;
+		if (use_crimson_colors) {
+			inspector_indent_color = p_config.separator_color;
+		}
 		Ref<StyleBoxFlat> inspector_indent_style = EditorThemeManager::make_flat_stylebox(inspector_indent_color, EDSCALE_RND(2.0), 0, EDSCALE_RND(2.0), 0);
 		p_theme->set_stylebox("indent_box", "EditorInspectorSection", inspector_indent_style);
 		p_theme->set_constant("indent_size", "EditorInspectorSection", EDSCALE_RND(6.0));
@@ -2640,9 +2670,20 @@ void ThemeModern::populate_editor_styles(const Ref<EditorTheme> &p_theme, Editor
 		category_bg->set_bg_color(p_config.surface_high_color);
 		category_bg->set_content_margin_individual(0, EDSCALE_RND(p_config.base_margin), 0, EDSCALE_RND(p_config.base_margin));
 		if (use_crimson_colors) {
-			category_bg->set_content_margin_individual(EDSCALE_RND(4), EDSCALE_RND(p_config.base_margin * 1.5), EDSCALE_RND(4), EDSCALE_RND(p_config.base_margin * 1.5));
-			category_bg->set_border_width(SIDE_BOTTOM, MAX(1, EDSCALE_RND(1)));
+			category_bg->set_draw_center(false);
+			category_bg->set_corner_radius_all(0);
+			category_bg->set_content_margin_individual(0, EDSCALE_RND(6), 0, EDSCALE_RND(6));
+			category_bg->set_border_width_all(0);
+			category_bg->set_border_width(SIDE_TOP, MAX(1, EDSCALE_RND(1)));
 			category_bg->set_border_color(p_config.separator_color);
+			p_theme->set_constant("leading_margin", "EditorInspectorCategory", EDSCALE_RND(8));
+			p_theme->set_font(SceneStringName(font), "EditorInspectorCategory", p_theme->get_font(SNAME("medium"), EditorStringName(EditorFonts)));
+			p_theme->set_font_size(SceneStringName(font_size), "EditorInspectorCategory", p_theme->get_font_size(SNAME("control_size"), EditorStringName(EditorFonts)));
+			p_theme->set_color(SceneStringName(font_color), "EditorInspectorCategory", p_config.font_secondary_color);
+			p_theme->set_color("layer_on_color", "EditorPropertyLayersGrid", p_config.accent_color.darkened(0.49));
+			p_theme->set_color("layer_off_color", "EditorPropertyLayersGrid", p_config.surface_high_color);
+			p_theme->set_color("layer_text_color", "EditorPropertyLayersGrid", p_config.font_focus_color);
+			p_theme->set_color("layer_text_off_color", "EditorPropertyLayersGrid", p_config.font_secondary_color);
 		}
 		if (p_config.draw_extra_borders) {
 			category_bg->set_border_width_all(1);
@@ -2764,6 +2805,12 @@ void ThemeModern::populate_editor_styles(const Ref<EditorTheme> &p_theme, Editor
 		Ref<StyleBoxFlat> style_inspector_button_disabled = p_config.button_style_disabled->duplicate();
 		style_inspector_button_disabled->set_content_margin(SIDE_TOP, vertical_margin);
 		style_inspector_button_disabled->set_content_margin(SIDE_BOTTOM, vertical_margin);
+
+		if (use_crimson_colors) {
+			style_inspector_button->set_bg_color(p_config.surface_low_color);
+			style_inspector_button->set_border_color(p_config.button_border_normal_color);
+			style_inspector_button_hover->set_bg_color(p_config.surface_high_color);
+		}
 
 		p_theme->set_stylebox(CoreStringName(normal), "EditorInspectorButton", style_inspector_button);
 		p_theme->set_stylebox(SceneStringName(hover), "EditorInspectorButton", style_inspector_button_hover);

@@ -153,7 +153,9 @@ void editor_register_fonts(const Ref<Theme> &p_theme, bool p_crimson_typography)
 
 	// Load built-in fonts.
 	const int logical_font_size = EDITOR_GET("interface/editor/fonts/main_font_size");
-	const int default_font_size = logical_font_size * EDSCALE;
+	const int default_font_size = p_crimson_typography ? EDSCALE_RND(logical_font_size) : logical_font_size * EDSCALE;
+	const int compact_font_size = EDSCALE_RND(MAX(8, logical_font_size - 1));
+	const int metadata_font_size = EDSCALE_RND(MAX(8, logical_font_size - 2));
 	const float embolden_strength = 0.6;
 
 	Ref<Font> default_font = load_internal_font(_font_Inter_Regular, _font_Inter_Regular_size, font_hinting, font_antialiasing, true, font_subpixel_positioning, font_disable_embedded_bitmaps, false);
@@ -476,7 +478,7 @@ void editor_register_fonts(const Ref<Theme> &p_theme, bool p_crimson_typography)
 	mono_other_fc_mono->set_variation_transform(Transform2D(1.0, 0.1, 0.0, 1.0, 0.0, 0.0));
 
 	Ref<Font> medium_font = bold_fc;
-	Ref<Font> tab_font = bold_fc;
+	Ref<Font> control_font = default_fc;
 	Ref<Font> display_font = bold_fc;
 	if (p_crimson_typography && !dir->file_exists(custom_font_path) && !dir->file_exists(custom_font_path_bold)) {
 		Ref<FontFile> inter = load_internal_font(_font_Inter_Variable, _font_Inter_Variable_size, font_hinting, font_antialiasing, true, font_subpixel_positioning, font_disable_embedded_bitmaps);
@@ -493,10 +495,10 @@ void editor_register_fonts(const Ref<Theme> &p_theme, bool p_crimson_typography)
 		heading.instantiate();
 		apply_axes(heading, 550, 14);
 		medium_font = heading;
-		Ref<FontVariation> tab;
-		tab.instantiate();
-		apply_axes(tab, 510, 14);
-		tab_font = tab;
+		Ref<FontVariation> control;
+		control.instantiate();
+		apply_axes(control, 500, 14);
+		control_font = control;
 		Ref<FontVariation> title;
 		title.instantiate();
 		apply_axes(title, 600, 28);
@@ -527,20 +529,38 @@ void editor_register_fonts(const Ref<Theme> &p_theme, bool p_crimson_typography)
 	p_theme->set_font("italic", EditorStringName(EditorFonts), italic_fc);
 	p_theme->set_font_size("italic_size", EditorStringName(EditorFonts), default_font_size);
 
-	// Title font.
-
+	// Interface typography.
+	p_theme->set_font("control", EditorStringName(EditorFonts), control_font);
+	p_theme->set_font_size("control_size", EditorStringName(EditorFonts), compact_font_size);
 	p_theme->set_font("medium", EditorStringName(EditorFonts), medium_font);
+	p_theme->set_font_size("medium_size", EditorStringName(EditorFonts), default_font_size);
+	const Ref<Font> tab_font = p_crimson_typography ? control_font : Ref<Font>(bold_fc);
 	p_theme->set_font("tab", EditorStringName(EditorFonts), tab_font);
 	p_theme->set_font("title", EditorStringName(EditorFonts), display_font);
 	p_theme->set_font_size("title_size", EditorStringName(EditorFonts), default_font_size + (p_crimson_typography ? 3 : 1) * EDSCALE);
 	if (p_crimson_typography) {
+		p_theme->set_font_size("project_caption_size", EditorStringName(EditorFonts), EDSCALE_RND(logical_font_size + 1));
+
 		for (const char *type : { "TabBar", "TabContainer" }) {
 			p_theme->set_font(SceneStringName(font), type, tab_font);
-			p_theme->set_font_size(SceneStringName(font_size), type, EDSCALE_RND(logical_font_size + 1));
+			p_theme->set_font_size(SceneStringName(font_size), type, default_font_size);
 		}
-		for (const char *type : { "Button", "MenuButton", "OptionButton", "LineEdit", "SpinBox", "PopupMenu" }) {
-			p_theme->set_font_size(SceneStringName(font_size), type, EDSCALE_RND(MAX(8, logical_font_size - 1)));
+		for (const char *type : { "Button", "MenuButton", "MenuBar", "OptionButton", "PopupMenu", "BottomPanel" }) {
+			p_theme->set_font(SceneStringName(font), type, control_font);
+			p_theme->set_font_size(SceneStringName(font_size), type, compact_font_size);
 		}
+		for (const char *type : { "LineEdit", "SpinBox" }) {
+			p_theme->set_font_size(SceneStringName(font_size), type, compact_font_size);
+		}
+		for (const char *type : { "Tree", "ItemList" }) {
+			p_theme->set_font(SceneStringName(font), type, default_fc);
+			p_theme->set_font_size(SceneStringName(font_size), type, default_font_size);
+		}
+
+		p_theme->set_font("title_button_font", "Tree", control_font);
+		p_theme->set_font_size("title_button_font_size", "Tree", metadata_font_size);
+		p_theme->set_font("font_separator", "PopupMenu", control_font);
+		p_theme->set_font_size("font_separator_size", "PopupMenu", metadata_font_size);
 	}
 
 	p_theme->set_type_variation("MainScreenContainer", "TabContainer");

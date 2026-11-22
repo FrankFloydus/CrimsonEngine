@@ -341,7 +341,6 @@ private:
 	Label *project_title = nullptr;
 	HBoxContainer *project_identity = nullptr;
 	TextureRect *project_mark = nullptr;
-	Button *command_palette_button = nullptr;
 	Control *left_menu_spacer = nullptr;
 	Control *right_menu_spacer = nullptr;
 	EditorTitleBar *title_bar = nullptr;

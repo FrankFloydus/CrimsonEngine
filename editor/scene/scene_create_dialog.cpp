@@ -39,7 +39,6 @@
 #include "editor/gui/editor_validation_panel.h"
 #include "editor/settings/editor_feature_profile.h"
 #include "editor/themes/editor_scale.h"
-#include "scene/2d/node_2d.h"
 #include "scene/3d/node_3d.h"
 #include "scene/gui/box_container.h"
 #include "scene/gui/check_box.h"
@@ -52,7 +51,6 @@ void SceneCreateDialog::_notification(int p_what) {
 	switch (p_what) {
 		case NOTIFICATION_THEME_CHANGED: {
 			select_node_button->set_button_icon(get_editor_theme_icon(SNAME("ClassList")));
-			node_type_2d->set_button_icon(get_editor_theme_icon(SNAME("Node2D")));
 			node_type_3d->set_button_icon(get_editor_theme_icon(SNAME("Node3D")));
 			node_type_gui->set_button_icon(get_editor_theme_icon(SNAME("Control")));
 			node_type_other->add_theme_icon_override(SNAME("icon"), get_editor_theme_icon(SNAME("Node")));
@@ -74,7 +72,7 @@ void SceneCreateDialog::config(const String &p_dir, const String &p_scene_name) 
 	Ref<EditorFeatureProfile> profile = EditorFeatureProfileManager::get_singleton()->get_current_profile();
 	node_type_3d->set_visible(profile.is_null() || !profile->is_feature_disabled(EditorFeatureProfile::FEATURE_3D));
 	if (!node_type_3d->is_visible() && node_type_3d->is_pressed()) {
-		node_type_2d->set_pressed(true);
+		node_type_gui->set_pressed(true);
 	}
 }
 
@@ -169,9 +167,6 @@ Node *SceneCreateDialog::create_scene_root() {
 
 	Node *root = nullptr;
 	switch (type) {
-		case ROOT_2D_SCENE:
-			root = memnew(Node2D);
-			break;
 		case ROOT_3D_SCENE:
 			root = memnew(Node3D);
 			break;
@@ -215,20 +210,13 @@ SceneCreateDialog::SceneCreateDialog() {
 
 		node_type_group.instantiate();
 
-		node_type_2d = memnew(CheckBox);
-		vb->add_child(node_type_2d);
-		node_type_2d->set_text(TTR("2D Scene"));
-		node_type_2d->set_theme_type_variation("CheckBoxNoIconTint");
-		node_type_2d->set_button_group(node_type_group);
-		node_type_2d->set_meta(type_meta, ROOT_2D_SCENE);
-		node_type_2d->set_pressed(true);
-
 		node_type_3d = memnew(CheckBox);
 		vb->add_child(node_type_3d);
 		node_type_3d->set_text(TTR("3D Scene"));
 		node_type_3d->set_theme_type_variation("CheckBoxNoIconTint");
 		node_type_3d->set_button_group(node_type_group);
 		node_type_3d->set_meta(type_meta, ROOT_3D_SCENE);
+		node_type_3d->set_pressed(true);
 
 		node_type_gui = memnew(CheckBox);
 		vb->add_child(node_type_gui);

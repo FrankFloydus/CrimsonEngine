@@ -61,11 +61,8 @@
 #include "editor/themes/editor_theme_manager.h"
 #include "editor/translations/editor_translation_preview_button.h"
 #include "editor/translations/editor_translation_preview_menu.h"
-#include "scene/2d/audio_stream_player_2d.h"
-#include "scene/2d/mesh_instance_2d.h"
+#include "scene/2d/node_2d.h"
 #include "scene/2d/physics/touch_screen_button.h"
-#include "scene/2d/polygon_2d.h"
-#include "scene/2d/skeleton_2d.h"
 #include "scene/2d/sprite_2d.h"
 #include "scene/debugger/canvas_item_manipulator.h"
 #include "scene/debugger/debugger_helpers.h"
@@ -616,7 +613,7 @@ void CanvasItemEditor::_selection_menu_requested(const Array &p_selection, const
 
 void CanvasItemEditor::_tool_menu_requested(const Point2 &p_pos) {
 	add_node_menu->clear();
-	add_node_menu->add_icon_item(get_editor_theme_icon(SNAME("Add")), TTRC("Add 2D Node Here..."), ADD_NODE);
+	add_node_menu->add_icon_item(get_editor_theme_icon(SNAME("Add")), TTRC("Add UI Node Here..."), ADD_NODE);
 	add_node_menu->add_icon_item(get_editor_theme_icon(SNAME("Instance")), TTRC("Instantiate Scene Here..."), ADD_INSTANCE);
 	for (Node *node : SceneTreeDock::get_singleton()->get_node_clipboard()) {
 		if (Object::cast_to<CanvasItem>(node)) {
@@ -2551,7 +2548,6 @@ void CanvasItemEditor::set_current_tool(CanvasItemManipulator::Tool p_tool) {
 void CanvasItemEditor::_update_editor_settings() {
 	button_center_view->set_button_icon(get_editor_theme_icon(SNAME("CenterView")));
 	select_button->set_button_icon(get_editor_theme_icon(SNAME("ToolSelect")));
-	scene_paint_button->set_button_icon(get_editor_theme_icon(SNAME("Paint")));
 	select_sb->set_texture(get_editor_theme_icon(SNAME("EditorRect2D")));
 	list_select_button->set_button_icon(get_editor_theme_icon(SNAME("ListSelect")));
 	move_button->set_button_icon(get_editor_theme_icon(SNAME("ToolMove")));
@@ -2561,7 +2557,6 @@ void CanvasItemEditor::_update_editor_settings() {
 	smart_snap_button->set_button_icon(get_editor_theme_icon(SNAME("Snap")));
 	grid_snap_button->set_button_icon(get_editor_theme_icon(SNAME("SnapGrid")));
 	snap_config_menu->set_button_icon(get_editor_theme_icon(SNAME("GuiDropdown")));
-	skeleton_menu->set_button_icon(get_editor_theme_icon(SNAME("Bone")));
 	pan_button->set_button_icon(get_editor_theme_icon(SNAME("ToolPan")));
 	ruler_button->set_button_icon(get_editor_theme_icon(SNAME("Ruler")));
 	pivot_button->set_button_icon(get_editor_theme_icon(SNAME("EditPivot")));
@@ -2698,33 +2693,6 @@ void CanvasItemEditor::_notification(int p_what) {
 
 			// Activate / Deactivate the pivot tool.
 			pivot_button->set_disabled(selection.is_empty());
-
-			// Update the viewport if bones changes
-			for (KeyValue<BoneKey, BoneList> &E : bone_list) {
-				Object *b = ObjectDB::get_instance(E.key.from);
-				if (!b) {
-					viewport->queue_redraw();
-					break;
-				}
-
-				Node2D *b2 = Object::cast_to<Node2D>(b);
-				if (!b2 || !b2->is_inside_tree()) {
-					continue;
-				}
-
-				Transform2D global_xform = b2->get_global_transform();
-
-				if (global_xform != E.value.xform) {
-					E.value.xform = global_xform;
-					viewport->queue_redraw();
-				}
-
-				Bone2D *bone = Object::cast_to<Bone2D>(b);
-				if (bone && bone->get_length() != E.value.length) {
-					E.value.length = bone->get_length();
-					viewport->queue_redraw();
-				}
-			}
 		} break;
 
 		case EditorSettings::NOTIFICATION_EDITOR_SETTINGS_CHANGED: {
@@ -2963,9 +2931,14 @@ void CanvasItemEditor::_button_toggle_grid_snap(bool p_status) {
 }
 
 void CanvasItemEditor::_button_tool_select(int p_index) {
-	Button *tb[CanvasItemManipulator::TOOL_MAX] = { select_button, scene_paint_button, list_select_button, move_button, scale_button, rotate_button, pivot_button, pan_button, ruler_button };
+	Button *tb[CanvasItemManipulator::TOOL_MAX] = { select_button, nullptr, list_select_button, move_button, scale_button, rotate_button, pivot_button, pan_button, ruler_button };
+	if (p_index == CanvasItemManipulator::TOOL_SCENE_PAINT) {
+		return;
+	}
 	for (int i = 0; i < CanvasItemManipulator::TOOL_MAX; i++) {
-		tb[i]->set_pressed(i == p_index);
+		if (tb[i]) {
+			tb[i]->set_pressed(i == p_index);
+		}
 	}
 
 	ci_manipulator->set_tool((CanvasItemManipulator::Tool)p_index);
@@ -3007,42 +2980,6 @@ void CanvasItemEditor::_insert_animation_keys(bool p_location, bool p_rotation, 
 			if (key_scale && p_scale) {
 				te->insert_node_value_key(n2d, "scale", p_on_existing);
 			}
-
-			if (n2d->has_meta("_edit_bone_") && n2d->get_parent_item()) {
-				//look for an IK chain
-				List<Node2D *> ik_chain;
-
-				Node2D *n = Object::cast_to<Node2D>(n2d->get_parent_item());
-				bool has_chain = false;
-
-				while (n) {
-					ik_chain.push_back(n);
-					if (n->has_meta("_edit_ik_")) {
-						has_chain = true;
-						break;
-					}
-
-					if (!n->get_parent_item()) {
-						break;
-					}
-					n = Object::cast_to<Node2D>(n->get_parent_item());
-				}
-
-				if (has_chain && ik_chain.size()) {
-					for (Node2D *&F : ik_chain) {
-						if (key_pos) {
-							te->insert_node_value_key(F, "position", p_on_existing);
-						}
-						if (key_rot) {
-							te->insert_node_value_key(F, "rotation", p_on_existing);
-						}
-						if (key_scale) {
-							te->insert_node_value_key(F, "scale", p_on_existing);
-						}
-					}
-				}
-			}
-
 		} else if (Object::cast_to<Control>(ci)) {
 			Control *ctrl = Object::cast_to<Control>(ci);
 
@@ -3185,21 +3122,6 @@ void CanvasItemEditor::_popup_callback(int p_op) {
 		case SNAP_CONFIGURE: {
 			static_cast<SnapDialog *>(snap_dialog)->set_fields(ci_manipulator->get_grid_offset(), ci_manipulator->get_grid_step(), primary_grid_step, ci_manipulator->get_snap_rotation_offset(), ci_manipulator->get_snap_rotation_step(), ci_manipulator->get_snap_scale_step());
 			snap_dialog->popup_centered(Size2(320, 160) * EDSCALE);
-		} break;
-		case SKELETON_SHOW_BONES: {
-			List<Node *> selection = editor_selection->get_top_selected_node_list();
-			for (Node *E : selection) {
-				// Add children nodes so they are processed
-				for (int child = 0; child < E->get_child_count(); child++) {
-					selection.push_back(E->get_child(child));
-				}
-
-				Bone2D *bone_2d = Object::cast_to<Bone2D>(E);
-				if (!bone_2d || !bone_2d->is_inside_tree()) {
-					continue;
-				}
-				bone_2d->_editor_set_show_bone_gizmo(!bone_2d->_editor_get_show_bone_gizmo());
-			}
 		} break;
 		case SHOW_HELPERS: {
 			show_helpers = !show_helpers;
@@ -3424,48 +3346,6 @@ void CanvasItemEditor::_popup_callback(int p_op) {
 			view_menu->get_popup()->set_item_checked(view_menu->get_popup()->get_item_index(PREVIEW_CANVAS_SCALE), preview);
 
 		} break;
-		case SKELETON_MAKE_BONES: {
-			HashMap<ObjectID, Object *> &selection = editor_selection->get_selection();
-			Node *editor_root = get_tree()->get_edited_scene_root();
-
-			if (!editor_root || selection.is_empty()) {
-				return;
-			}
-
-			undo_redo->create_action(TTR("Create Custom Bone2D(s) from Node(s)"));
-			for (const KeyValue<ObjectID, Object *> &E : selection) {
-				Node2D *n2d = ObjectDB::get_instance<Node2D>(E.key);
-				if (!n2d) {
-					continue;
-				}
-
-				Bone2D *new_bone = memnew(Bone2D);
-				String new_bone_name = n2d->get_name();
-				new_bone_name += "Bone2D";
-				new_bone->set_name(new_bone_name);
-				new_bone->set_transform(n2d->get_transform());
-
-				Node *n2d_parent = n2d->get_parent();
-				if (!n2d_parent) {
-					continue;
-				}
-
-				undo_redo->add_do_method(n2d_parent, "add_child", new_bone);
-				undo_redo->add_do_method(n2d_parent, "remove_child", n2d);
-				undo_redo->add_do_method(new_bone, "add_child", n2d);
-				undo_redo->add_do_method(n2d, "set_transform", Transform2D());
-				undo_redo->add_do_method(this, "_set_owner_for_node_and_children", new_bone, editor_root);
-				undo_redo->add_do_reference(new_bone);
-
-				undo_redo->add_undo_method(new_bone, "remove_child", n2d);
-				undo_redo->add_undo_method(n2d_parent, "add_child", n2d);
-				undo_redo->add_undo_method(n2d_parent, "remove_child", new_bone);
-				undo_redo->add_undo_method(n2d, "set_transform", new_bone->get_transform());
-				undo_redo->add_undo_method(this, "_set_owner_for_node_and_children", n2d, editor_root);
-			}
-			undo_redo->commit_action();
-
-		} break;
 		case AUTO_RESAMPLE_CANVAS_ITEMS: {
 			auto_resampling_enabled = !auto_resampling_enabled;
 			int idx = view_menu->get_popup()->get_item_index(AUTO_RESAMPLE_CANVAS_ITEMS);
@@ -3476,13 +3356,6 @@ void CanvasItemEditor::_popup_callback(int p_op) {
 			_update_oversampling();
 			EditorSettings::get_singleton()->set_project_metadata("2d_editor", "auto_resampling_enabled", auto_resampling_enabled);
 		} break;
-	}
-}
-
-void CanvasItemEditor::_set_owner_for_node_and_children(Node *p_node, Node *p_owner) {
-	p_node->set_owner(p_owner);
-	for (int i = 0; i < p_node->get_child_count(); i++) {
-		_set_owner_for_node_and_children(p_node->get_child(i), p_owner);
 	}
 }
 
@@ -3544,8 +3417,6 @@ void CanvasItemEditor::_bind_methods() {
 
 	ClassDB::bind_method(D_METHOD("update_viewport"), &CanvasItemEditor::update_viewport);
 	ClassDB::bind_method(D_METHOD("center_at", "position"), &CanvasItemEditor::center_at);
-
-	ClassDB::bind_method("_set_owner_for_node_and_children", &CanvasItemEditor::_set_owner_for_node_and_children);
 
 	ADD_SIGNAL(MethodInfo("snap_changed"));
 	ADD_SIGNAL(MethodInfo("grid_visibility_changed", PropertyInfo(Variant::BOOL, "visible")));
@@ -4107,19 +3978,6 @@ CanvasItemEditor::CanvasItemEditor() {
 	select_button->set_shortcut_context(this);
 	select_button->set_accessibility_name(TTRC("Select Mode"));
 
-	scene_paint_button = memnew(Button);
-	scene_paint_button->set_theme_type_variation(SceneStringName(FlatButton));
-	input_hbox->add_child(scene_paint_button);
-	scene_paint_button->set_toggle_mode(true);
-	scene_paint_button->connect(SceneStringName(pressed), callable_mp(this, &CanvasItemEditor::_button_tool_select).bind(CanvasItemManipulator::TOOL_SCENE_PAINT));
-	scene_paint_button->set_shortcut(ED_SHORTCUT("canvas_item_editor/scene_paint_mode", TTRC("Scene Paint Mode"), Key::B, true));
-	scene_paint_button->set_shortcut_context(this);
-	scene_paint_button->set_accessibility_name(TTRC("Scene Paint Mode"));
-
-	VSeparator *vsep = memnew(VSeparator);
-	vsep->set_theme_type_variation("VSeparatorButtonGroup");
-	input_hbox->add_child(vsep);
-
 	move_button = memnew(Button);
 	move_button->set_theme_type_variation(SceneStringName(FlatButton));
 	input_hbox->add_child(move_button);
@@ -4147,7 +4005,7 @@ CanvasItemEditor::CanvasItemEditor() {
 	scale_button->set_shortcut_context(this);
 	scale_button->set_accessibility_name(TTRC("Scale Mode"));
 
-	vsep = memnew(VSeparator);
+	VSeparator *vsep = memnew(VSeparator);
 	vsep->set_theme_type_variation("VSeparatorButtonGroup");
 	input_hbox->add_child(vsep);
 
@@ -4293,27 +4151,6 @@ CanvasItemEditor::CanvasItemEditor() {
 
 	p->add_separator();
 	p->add_shortcut(ED_SHORTCUT("canvas_item_editor/configure_snap", TTRC("Configure Snap...")), SNAP_CONFIGURE);
-
-	main_flow->add_child(memnew(VSeparator));
-
-	HBoxContainer *skeleton_menu_hbox = memnew(HBoxContainer);
-	skeleton_menu_hbox->set_anchors_and_offsets_preset(Control::PRESET_FULL_RECT);
-	main_flow->add_child(skeleton_menu_hbox);
-
-	skeleton_menu = memnew(MenuButton);
-	skeleton_menu->set_flat(false);
-	skeleton_menu->set_theme_type_variation("FlatMenuButton");
-	skeleton_menu->set_shortcut_context(this);
-	skeleton_menu_hbox->add_child(skeleton_menu);
-	skeleton_menu->set_tooltip_text(TTRC("Skeleton Options"));
-	skeleton_menu->set_switch_on_hover(true);
-
-	p = skeleton_menu->get_popup();
-	p->set_hide_on_checkable_item_selection(false);
-	p->add_shortcut(ED_SHORTCUT("canvas_item_editor/skeleton_show_bones", TTRC("Show Bones")), SKELETON_SHOW_BONES);
-	p->add_separator();
-	p->add_shortcut(ED_SHORTCUT("canvas_item_editor/skeleton_make_bones", TTRC("Make Bone2D Node(s) from Node(s)"), KeyModifierMask::CMD_OR_CTRL | KeyModifierMask::SHIFT | Key::B), SKELETON_MAKE_BONES);
-	p->connect(SceneStringName(id_pressed), callable_mp(this, &CanvasItemEditor::_popup_callback));
 
 	main_flow->add_child(memnew(VSeparator));
 
@@ -4500,8 +4337,6 @@ CanvasItemEditor::CanvasItemEditor() {
 	reset_transform_rotation_shortcut = ED_SHORTCUT("canvas_item_editor/reset_transform_rotation", TTRC("Reset Rotation"), KeyModifierMask::ALT + Key::E);
 	reset_transform_scale_shortcut = ED_SHORTCUT("canvas_item_editor/reset_transform_scale", TTRC("Reset Scale"), KeyModifierMask::ALT + Key::R);
 
-	skeleton_menu->get_popup()->set_item_checked(skeleton_menu->get_popup()->get_item_index(SKELETON_SHOW_BONES), true);
-
 	// Store the singleton instance.
 	singleton = this;
 
@@ -4603,24 +4438,6 @@ void CanvasItemEditorViewport::_create_preview(const Vector<String> &files) cons
 			add_preview = true;
 		}
 
-		Ref<Mesh> mesh = res;
-		if (mesh.is_valid()) {
-			MeshInstance2D *mesh_instance = memnew(MeshInstance2D);
-			mesh_instance->set_mesh(mesh);
-			preview_node->add_child(mesh_instance);
-			add_preview = true;
-		}
-
-		Ref<AudioStream> audio = res;
-		if (audio.is_valid()) {
-			Sprite2D *sprite = memnew(Sprite2D);
-			sprite->set_texture(get_editor_theme_icon(SNAME("AudioStreamPlayer2D")));
-			sprite->set_modulate(Color(1, 1, 1, 0.7f));
-			sprite->set_position(Vector2(0, -sprite->get_texture()->get_size().height) * EDSCALE);
-			preview_node->add_child(sprite);
-			add_preview = true;
-		}
-
 		Ref<Script> script = res;
 		if (script.is_valid()) {
 			String class_name = script->get_global_name();
@@ -4668,7 +4485,7 @@ void CanvasItemEditorViewport::_create_texture_node(Node *p_parent, Node *p_chil
 
 	// Adjust position for Control and TouchScreenButton.
 	Ref<Texture2D> texture = ResourceCache::get_ref(p_path);
-	if (Object::cast_to<Control>(p_child) || Object::cast_to<TouchScreenButton>(p_child) || Object::cast_to<Polygon2D>(p_child)) {
+	if (Object::cast_to<Control>(p_child) || Object::cast_to<TouchScreenButton>(p_child)) {
 		target_position -= texture->get_size() / 2;
 	}
 	canvas_item_editor->add_node_to_scene(p_parent, p_child, target_position);
@@ -4685,54 +4502,7 @@ void CanvasItemEditorViewport::_create_texture_node(Node *p_parent, Node *p_chil
 	if (Object::cast_to<Control>(p_child)) {
 		Size2 texture_size = texture->get_size();
 		undo_redo->add_do_property(p_child, "size", texture_size);
-	} else if (Object::cast_to<Polygon2D>(p_child)) {
-		Size2 texture_size = texture->get_size();
-		Vector<Vector2> list = {
-			Vector2(0, 0),
-			Vector2(texture_size.width, 0),
-			Vector2(texture_size.width, texture_size.height),
-			Vector2(0, texture_size.height)
-		};
-		undo_redo->add_do_property(p_child, "polygon", list);
 	}
-}
-
-void CanvasItemEditorViewport::_create_audio_node(Node *p_parent, const String &p_path, const Point2 &p_point) {
-	AudioStreamPlayer2D *child = memnew(AudioStreamPlayer2D);
-
-	// Adjust casing according to project setting. The file name is expected to be in snake_case, but will work for others.
-	const String &node_name = Node::adjust_name_casing(p_path.get_file().get_basename());
-	if (!node_name.is_empty()) {
-		child->set_name(node_name);
-	}
-
-	// Compute the global position.
-	Transform2D xform = canvas_item_editor->get_canvas_transform();
-	Point2 target_position = xform.affine_inverse().xform(p_point);
-
-	canvas_item_editor->add_node_to_scene(p_parent, child, target_position);
-
-	EditorUndoRedoManager *undo_redo = EditorUndoRedoManager::get_singleton();
-	undo_redo->add_do_property(child, "stream", ResourceCache::get_ref(p_path));
-}
-
-void CanvasItemEditorViewport::_create_mesh_node(Node *p_parent, const String &p_path, const Point2 &p_point) {
-	MeshInstance2D *child = memnew(MeshInstance2D);
-
-	// Adjust casing according to project setting. The file name is expected to be in snake_case, but will work for others.
-	const String &node_name = Node::adjust_name_casing(p_path.get_file().get_basename());
-	if (!node_name.is_empty()) {
-		child->set_name(node_name);
-	}
-
-	// Compute the global position.
-	Transform2D xform = canvas_item_editor->get_canvas_transform();
-	Point2 target_position = xform.affine_inverse().xform(p_point);
-
-	canvas_item_editor->add_node_to_scene(p_parent, child, target_position);
-
-	EditorUndoRedoManager *undo_redo = EditorUndoRedoManager::get_singleton();
-	undo_redo->add_do_property(child, "mesh", ResourceCache::get_ref(p_path));
 }
 
 bool CanvasItemEditorViewport::_create_instance(Node *p_parent, const String &p_path, const Point2 &p_point) {
@@ -4786,7 +4556,7 @@ bool CanvasItemEditorViewport::_create_instance(Node *p_parent, const String &p_
 
 void CanvasItemEditorViewport::_create_script_node(Node *p_parent, const String &p_path, const Point2 &p_point) {
 	Ref<Script> script = ResourceLoader::load(p_path);
-	if (script.is_null()) {
+	if (script.is_null() || CreateDialog::is_non_ui_2d_node(script->get_instance_base_type())) {
 		return;
 	}
 
@@ -4903,16 +4673,6 @@ void CanvasItemEditorViewport::_perform_drop_data() {
 			_create_texture_node(target_node, child, path, drop_pos);
 		}
 
-		Ref<AudioStream> audio = res;
-		if (audio.is_valid()) {
-			_create_audio_node(target_node, path, drop_pos);
-		}
-
-		Ref<Mesh> mesh = res;
-		if (mesh.is_valid()) {
-			_create_mesh_node(target_node, path, drop_pos);
-		}
-
 		Ref<Script> script = res;
 		if (script.is_valid()) {
 			_create_script_node(target_node, path, drop_pos);
@@ -4964,9 +4724,7 @@ bool CanvasItemEditorViewport::can_drop_data(const Point2 &p_point, const Varian
 	enum {
 		SCENE = 1 << 0,
 		TEXTURE = 1 << 1,
-		AUDIO = 1 << 2,
-		MESH = 1 << 3,
-		SCRIPT = 1 << 4,
+		SCRIPT = 1 << 2,
 	};
 	int instantiate_type = 0;
 
@@ -4993,14 +4751,14 @@ bool CanvasItemEditorViewport::can_drop_data(const Point2 &p_point, const Varian
 			instantiate_type |= SCENE;
 		} else if (ClassDB::is_parent_class(res_type, SNAME("Texture2D"))) {
 			instantiate_type |= TEXTURE;
-		} else if (ClassDB::is_parent_class(res_type, SNAME("AudioStream"))) {
-			instantiate_type |= AUDIO;
-		} else if (ClassDB::is_parent_class(res_type, "Mesh")) {
-			instantiate_type |= MESH;
 		} else if (ClassDB::is_parent_class(res_type, "Script")) {
 			Ref<Script> script = ResourceLoader::load(path);
 			ERR_CONTINUE(script.is_null());
 			StringName base_type = script->get_instance_base_type();
+			if (CreateDialog::is_non_ui_2d_node(base_type)) {
+				error_message = TTR("This script extends a 2D gameplay node.");
+				break;
+			}
 			if (ClassDB::is_parent_class(base_type, "Node")) {
 				StringName global_name = script->get_global_name();
 				script_node_type = global_name.is_empty() ? base_type : global_name;
@@ -5053,13 +4811,9 @@ bool CanvasItemEditorViewport::can_drop_data(const Point2 &p_point, const Varian
 		title = TTR("Dropping multiple files...");
 	} else if (instantiate_type & SCENE) {
 		title = TTR("Dropping a Scene file...");
-	} else if (instantiate_type & AUDIO) {
-		title = TTR("Dropping an Audio file...");
 	} else if (instantiate_type & TEXTURE) {
 		// TRANSLATORS: The placeholders are the types of nodes being instantiated.
 		title = vformat(TTR("Dropping a Texture file as a %s node..."), default_texture_node_type);
-	} else if (instantiate_type & MESH) {
-		title = TTR("Dropping a Mesh file...");
 	} else if (instantiate_type & SCRIPT) {
 		title = vformat(TTR("Dropping a Script as a %s node..."), script_node_type);
 	}
@@ -5303,18 +5057,11 @@ void CanvasItemEditorViewport::_notification(int p_what) {
 }
 
 CanvasItemEditorViewport::CanvasItemEditorViewport(CanvasItemEditor *p_canvas_item_editor) {
-	default_texture_node_type = "Sprite2D";
-	// Node2D
-	texture_node_types.push_back("Sprite2D");
-	texture_node_types.push_back("PointLight2D");
-	texture_node_types.push_back("CPUParticles2D");
-	texture_node_types.push_back("GPUParticles2D");
-	texture_node_types.push_back("Polygon2D");
-	texture_node_types.push_back("TouchScreenButton");
-	// Control
+	default_texture_node_type = "TextureRect";
 	texture_node_types.push_back("TextureRect");
 	texture_node_types.push_back("TextureButton");
 	texture_node_types.push_back("NinePatchRect");
+	texture_node_types.push_back("TouchScreenButton");
 
 	target_node = nullptr;
 	canvas_item_editor = p_canvas_item_editor;
@@ -5332,7 +5079,7 @@ CanvasItemEditorViewport::CanvasItemEditorViewport(CanvasItemEditor *p_canvas_it
 	texture_node_type_selector->add_child(vbc);
 	vbc->set_h_size_flags(Control::SIZE_EXPAND_FILL);
 	vbc->set_v_size_flags(Control::SIZE_EXPAND_FILL);
-	vbc->set_custom_minimum_size(Size2(240, 260) * EDSCALE);
+	vbc->set_custom_minimum_size(Size2(240, 0) * EDSCALE);
 
 	VBoxContainer *btn_group = memnew(VBoxContainer);
 	vbc->add_child(btn_group);
