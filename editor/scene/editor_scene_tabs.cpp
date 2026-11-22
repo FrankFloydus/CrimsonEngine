@@ -53,11 +53,14 @@
 #include "scene/gui/popup_menu.h"
 #include "scene/gui/tab_bar.h"
 #include "scene/gui/texture_rect.h"
+#include "scene/resources/style_box.h"
 
 void EditorSceneTabs::_notification(int p_what) {
 	switch (p_what) {
 		case NOTIFICATION_THEME_CHANGED: {
-			tabbar_panel->add_theme_style_override(SceneStringName(panel), get_theme_stylebox(SNAME("tabbar_background"), SNAME("TabContainer")));
+			if (!embedded_in_workspace_bar) {
+				tabbar_panel->add_theme_style_override(SceneStringName(panel), get_theme_stylebox(SNAME("tabbar_background"), SNAME("TabContainer")));
+			}
 			scene_tabs->add_theme_constant_override("icon_max_width", get_theme_constant(SNAME("class_icon_size"), EditorStringName(Editor)));
 
 			scene_list->set_button_icon(get_editor_theme_icon(SNAME("GuiTabMenuHl")));
@@ -475,13 +478,19 @@ void EditorSceneTabs::_bind_methods() {
 	ADD_SIGNAL(MethodInfo("tab_closed", PropertyInfo(Variant::INT, "tab_index")));
 }
 
-EditorSceneTabs::EditorSceneTabs() {
+EditorSceneTabs::EditorSceneTabs(bool p_embedded_in_workspace_bar) :
+		embedded_in_workspace_bar(p_embedded_in_workspace_bar) {
 	singleton = this;
 
 	set_process_shortcut_input(true);
 	set_process_unhandled_key_input(true);
 
 	tabbar_panel = memnew(PanelContainer);
+	if (embedded_in_workspace_bar) {
+		Ref<StyleBoxEmpty> empty;
+		empty.instantiate();
+		tabbar_panel->add_theme_style_override(SceneStringName(panel), empty);
+	}
 	add_child(tabbar_panel);
 	tabbar_container = memnew(HBoxContainer);
 	tabbar_panel->add_child(tabbar_container);

@@ -59,6 +59,7 @@ public:
 	};
 
 private:
+	bool embedded_in_workspace_bar = false;
 	PanelContainer *tabbar_panel = nullptr;
 	HBoxContainer *tabbar_container = nullptr;
 
@@ -113,5 +114,5 @@ public:
 
 	void update_scene_tabs();
 
-	EditorSceneTabs();
+	explicit EditorSceneTabs(bool p_embedded_in_workspace_bar = false);
 };

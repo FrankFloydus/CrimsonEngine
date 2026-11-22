@@ -61,6 +61,7 @@ class PanelContainer;
 class RichTextLabel;
 class SubViewport;
 class TextureProgressBar;
+class TextureRect;
 class Timer;
 class Translation;
 class Tree;
@@ -338,15 +339,14 @@ private:
 	Control *vp_base = nullptr;
 
 	Label *project_title = nullptr;
+	HBoxContainer *project_identity = nullptr;
+	TextureRect *project_mark = nullptr;
+	Button *command_palette_button = nullptr;
 	Control *left_menu_spacer = nullptr;
 	Control *right_menu_spacer = nullptr;
 	EditorTitleBar *title_bar = nullptr;
 	EditorRunBar *project_run_bar = nullptr;
 	HBoxContainer *right_menu_hb = nullptr;
-
-	// Spacers to center 2D / 3D / Script buttons.
-	HBoxContainer *left_spacer = nullptr;
-	Control *right_spacer = nullptr;
 
 	Control *menu_btn_spacer = nullptr;
 	MenuButton *main_menu_button = nullptr;

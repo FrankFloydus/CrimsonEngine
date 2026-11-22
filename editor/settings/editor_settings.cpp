@@ -623,8 +623,8 @@ void EditorSettings::_load_defaults(Ref<ConfigFile> p_extra_config) {
 	EDITOR_SETTING_BASIC(Variant::STRING, PROPERTY_HINT_ENUM, "interface/theme/color_preset", "Crimson", "Crimson,Default,Breeze Dark,Godot,Godot 2,Godot 3,Gray,Light,Solarized (Dark),Solarized (Light),Black (OLED),Custom")
 	EDITOR_SETTING_BASIC(Variant::STRING, PROPERTY_HINT_ENUM, "interface/theme/spacing_preset", "Default", "Compact,Default,Spacious,Custom")
 	EDITOR_SETTING(Variant::INT, PROPERTY_HINT_ENUM, "interface/theme/icon_and_font_color", 0, "Auto,Dark,Light")
-	EDITOR_SETTING_BASIC(Variant::COLOR, PROPERTY_HINT_NONE, "interface/theme/base_color", Color::hex(0x252126ff), "")
-	EDITOR_SETTING_BASIC(Variant::COLOR, PROPERTY_HINT_NONE, "interface/theme/accent_color", Color::hex(0xf45d73ff), "")
+	EDITOR_SETTING_BASIC(Variant::COLOR, PROPERTY_HINT_NONE, "interface/theme/base_color", Color::hex(0x1e2027ff), "")
+	EDITOR_SETTING_BASIC(Variant::COLOR, PROPERTY_HINT_NONE, "interface/theme/accent_color", Color::hex(0xf46b81ff), "")
 	EDITOR_SETTING_BASIC(Variant::BOOL, PROPERTY_HINT_NONE, "interface/theme/use_system_accent_color", false, "")
 	EDITOR_SETTING_BASIC(Variant::FLOAT, PROPERTY_HINT_RANGE, "interface/theme/contrast", 0.22, "-1,1,0.01")
 	EDITOR_SETTING(Variant::BOOL, PROPERTY_HINT_NONE, "interface/theme/draw_extra_borders", false, "")
@@ -1994,16 +1994,16 @@ HashMap<StringName, Color> EditorSettings::get_crimson_text_editor_theme() {
 	HashMap<StringName, Color> colors;
 
 	// Match the editor's recessed and popup surfaces, with separate hues for code and diagnostics.
-	colors["text_editor/theme/highlighting/background_color"] = Color::hex(0x171419ff);
+	colors["text_editor/theme/highlighting/background_color"] = Color::hex(0x14161dff);
 	colors["text_editor/theme/highlighting/text_color"] = Color::hex(0xf0e9eeff);
-	colors["text_editor/theme/highlighting/completion_background_color"] = Color::hex(0x312934ff);
+	colors["text_editor/theme/highlighting/completion_background_color"] = Color::hex(0x262933ff);
 	colors["text_editor/theme/highlighting/completion_font_color"] = Color::hex(0xf0e9eeff);
-	colors["text_editor/theme/highlighting/completion_selected_color"] = Color::hex(0x4a3040ff);
+	colors["text_editor/theme/highlighting/completion_selected_color"] = Color::hex(0x502e40ff);
 	colors["text_editor/theme/highlighting/caret_color"] = Color::hex(0xff8598ff);
 	colors["text_editor/theme/highlighting/selection_color"] = Color::hex(0x50273aff);
-	colors["text_editor/theme/highlighting/current_line_color"] = Color::hex(0x241e27ff);
-	colors["text_editor/theme/highlighting/line_length_guideline_color"] = Color::hex(0x554955ff);
-	colors["text_editor/theme/highlighting/word_highlighted_color"] = Color::hex(0x3d313dff);
+	colors["text_editor/theme/highlighting/current_line_color"] = Color::hex(0x20242dff);
+	colors["text_editor/theme/highlighting/line_length_guideline_color"] = Color::hex(0x4b4655ff);
+	colors["text_editor/theme/highlighting/word_highlighted_color"] = Color::hex(0x343340ff);
 	colors["text_editor/theme/highlighting/line_number_color"] = Color::hex(0xaa9ca9ff);
 	colors["text_editor/theme/highlighting/safe_line_number_color"] = Color::hex(0xa0c8abff);
 	colors["text_editor/theme/highlighting/search_result_color"] = Color::hex(0x433023ff);

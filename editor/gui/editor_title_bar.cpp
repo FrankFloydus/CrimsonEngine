@@ -108,7 +108,7 @@ void EditorTitleBar::_notification(int p_what) {
 			[[fallthrough]];
 		}
 		case NOTIFICATION_RESIZED: {
-			get_window()->set_nonclient_area(get_global_transform().xform(Rect2i(get_position(), get_size())));
+			get_window()->set_nonclient_area(get_global_transform().xform(Rect2i(Point2i(), get_size())));
 		} break;
 		case NOTIFICATION_SORT_CHILDREN: {
 			if (!center_control) {
