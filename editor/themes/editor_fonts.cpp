@@ -152,7 +152,8 @@ void editor_register_fonts(const Ref<Theme> &p_theme, bool p_crimson_typography)
 	}
 
 	// Load built-in fonts.
-	const int default_font_size = int(EDITOR_GET("interface/editor/fonts/main_font_size")) * EDSCALE;
+	const int logical_font_size = EDITOR_GET("interface/editor/fonts/main_font_size");
+	const int default_font_size = logical_font_size * EDSCALE;
 	const float embolden_strength = 0.6;
 
 	Ref<Font> default_font = load_internal_font(_font_Inter_Regular, _font_Inter_Regular_size, font_hinting, font_antialiasing, true, font_subpixel_positioning, font_disable_embedded_bitmaps, false);
@@ -474,20 +475,39 @@ void editor_register_fonts(const Ref<Theme> &p_theme, bool p_crimson_typography)
 	mono_other_fc_mono->set_variation_embolden(-0.25);
 	mono_other_fc_mono->set_variation_transform(Transform2D(1.0, 0.1, 0.0, 1.0, 0.0, 0.0));
 
+	Ref<Font> medium_font = bold_fc;
+	Ref<Font> tab_font = bold_fc;
+	Ref<Font> display_font = bold_fc;
+	if (p_crimson_typography && !dir->file_exists(custom_font_path) && !dir->file_exists(custom_font_path_bold)) {
+		Ref<FontFile> inter = load_internal_font(_font_Inter_Variable, _font_Inter_Variable_size, font_hinting, font_antialiasing, true, font_subpixel_positioning, font_disable_embedded_bitmaps);
+		inter->set_fallbacks(fallbacks);
+		const auto apply_axes = [&inter](const Ref<FontVariation> &p_variation, int p_weight, int p_optical_size) {
+			Dictionary axes;
+			axes[TS->name_to_tag("wght")] = p_weight;
+			axes[TS->name_to_tag("opsz")] = p_optical_size;
+			p_variation->set_base_font(inter);
+			p_variation->set_variation_opentype(axes);
+		};
+		apply_axes(default_fc, 450, 14);
+		Ref<FontVariation> heading;
+		heading.instantiate();
+		apply_axes(heading, 550, 14);
+		medium_font = heading;
+		Ref<FontVariation> tab;
+		tab.instantiate();
+		apply_axes(tab, 510, 14);
+		tab_font = tab;
+		Ref<FontVariation> title;
+		title.instantiate();
+		apply_axes(title, 600, 28);
+		display_font = title;
+	}
+
 	Ref<FontVariation> italic_fc = default_fc->duplicate();
 	italic_fc->set_variation_transform(Transform2D(1.0, 0.2, 0.0, 1.0, 0.0, 0.0));
 
 	Ref<FontVariation> bold_italic_fc = bold_fc->duplicate();
 	bold_italic_fc->set_variation_transform(Transform2D(1.0, 0.2, 0.0, 1.0, 0.0, 0.0));
-
-	Ref<Font> medium_font = bold_fc;
-	Ref<Font> display_font = bold_fc;
-	if (p_crimson_typography && custom_font_path.is_empty() && custom_font_path_bold.is_empty()) {
-		medium_font = load_internal_font(_font_Inter_Medium, _font_Inter_Medium_size, font_hinting, font_antialiasing, true, font_subpixel_positioning, font_disable_embedded_bitmaps);
-		medium_font->set_fallbacks(fallbacks);
-		display_font = load_internal_font(_font_InterDisplay_SemiBold, _font_InterDisplay_SemiBold_size, font_hinting, font_antialiasing, true, font_subpixel_positioning, font_disable_embedded_bitmaps);
-		display_font->set_fallbacks(fallbacks_bold);
-	}
 
 	// Setup theme.
 
@@ -510,11 +530,17 @@ void editor_register_fonts(const Ref<Theme> &p_theme, bool p_crimson_typography)
 	// Title font.
 
 	p_theme->set_font("medium", EditorStringName(EditorFonts), medium_font);
+	p_theme->set_font("tab", EditorStringName(EditorFonts), tab_font);
 	p_theme->set_font("title", EditorStringName(EditorFonts), display_font);
 	p_theme->set_font_size("title_size", EditorStringName(EditorFonts), default_font_size + (p_crimson_typography ? 3 : 1) * EDSCALE);
 	if (p_crimson_typography) {
-		p_theme->set_font(SceneStringName(font), "TabBar", medium_font);
-		p_theme->set_font(SceneStringName(font), "TabContainer", medium_font);
+		for (const char *type : { "TabBar", "TabContainer" }) {
+			p_theme->set_font(SceneStringName(font), type, tab_font);
+			p_theme->set_font_size(SceneStringName(font_size), type, EDSCALE_RND(logical_font_size + 1));
+		}
+		for (const char *type : { "Button", "MenuButton", "OptionButton", "LineEdit", "SpinBox", "PopupMenu" }) {
+			p_theme->set_font_size(SceneStringName(font_size), type, EDSCALE_RND(MAX(8, logical_font_size - 1)));
+		}
 	}
 
 	p_theme->set_type_variation("MainScreenContainer", "TabContainer");

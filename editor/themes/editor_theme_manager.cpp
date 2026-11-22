@@ -331,8 +331,8 @@ EditorThemeManager::ThemeConfiguration EditorThemeManager::_create_theme_config(
 				preset_accent_color = Color(0.239, 0.682, 0.914);
 				preset_base_color = Color(0.1255, 0.1373, 0.149);
 			} else if (config.is_crimson_preset()) {
-				preset_accent_color = Color::hex(0xf46b81ff);
-				preset_base_color = Color::hex(0x1e2027ff);
+				preset_accent_color = Color::hex(0xee7186ff);
+				preset_base_color = Color::hex(0x19191bff);
 				preset_contrast = 0.22;
 				preset_icon_saturation = 0.92;
 			} else if (config.preset == "Godot 2") {
@@ -371,7 +371,7 @@ EditorThemeManager::ThemeConfiguration EditorThemeManager::_create_theme_config(
 			config.icon_saturation = preset_icon_saturation;
 			config.corner_radius = config.style == "Classic" ? 3 : config.default_corner_radius;
 			if (config.style == "Modern" && config.is_crimson_preset()) {
-				config.corner_radius = 6;
+				config.corner_radius = 5;
 			}
 
 			EditorSettings::get_singleton()->set_initial_value("interface/theme/accent_color", config.accent_color);

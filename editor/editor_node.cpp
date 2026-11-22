@@ -170,7 +170,6 @@
 #include "scene/gui/panel_container.h"
 #include "scene/gui/popup.h"
 #include "scene/gui/rich_text_label.h"
-#include "scene/gui/separator.h"
 #include "scene/gui/split_container.h"
 #include "scene/gui/tab_container.h"
 #include "scene/gui/texture_rect.h"
@@ -8938,14 +8937,6 @@ EditorNode::EditorNode() {
 
 	title_bar = memnew(EditorTitleBar);
 	command_bar_panel->add_child(title_bar);
-
-	PanelContainer *workspace_bar_panel = memnew(PanelContainer);
-	workspace_bar_panel->set_theme_type_variation("CrimsonWorkspaceBar");
-	workspace_bar_panel->set_mouse_filter(Control::MOUSE_FILTER_IGNORE);
-	main_vbox->add_child(workspace_bar_panel);
-
-	HBoxContainer *workspace_bar = memnew(HBoxContainer);
-	workspace_bar_panel->add_child(workspace_bar);
 #endif
 
 	DockSplitContainer *main_vsplit = memnew(DockSplitContainer);
@@ -9121,12 +9112,10 @@ EditorNode::EditorNode() {
 
 #ifdef ANDROID_ENABLED
 	scene_tabs = memnew(EditorSceneTabs);
-	srt->add_child(scene_tabs);
 #else
 	scene_tabs = memnew(EditorSceneTabs(true));
-	scene_tabs->set_h_size_flags(Control::SIZE_EXPAND_FILL);
-	workspace_bar->add_child(scene_tabs);
 #endif
+	srt->add_child(scene_tabs);
 	scene_tabs->connect("tab_changed", callable_mp(this, &EditorNode::_set_current_scene));
 	scene_tabs->connect("tab_closed", callable_mp(this, &EditorNode::_scene_tab_closed));
 
@@ -9145,17 +9134,6 @@ EditorNode::EditorNode() {
 	srt->add_child(editor_main_screen);
 #ifdef ANDROID_ENABLED
 	title_bar->set_center_control(editor_main_screen->get_internal_container());
-#else
-	HBoxContainer *workspace_modes = editor_main_screen->get_internal_container();
-	workspace_modes->reparent(workspace_bar, false);
-	// Reserve room for the workspace tabs, while keeping scene tabs flexible and preserving overflow on narrow screens.
-	workspace_modes->set_h_size_flags(Control::SIZE_EXPAND_FILL);
-	workspace_modes->set_custom_maximum_size(Size2(460 * EDSCALE, -1));
-	workspace_bar->move_child(workspace_modes, 0);
-
-	VSeparator *workspace_divider = memnew(VSeparator);
-	workspace_bar->add_child(workspace_divider);
-	workspace_bar->move_child(workspace_divider, 1);
 #endif
 
 	editor_dock_manager->register_dock_slot(editor_main_screen);
@@ -9364,7 +9342,8 @@ EditorNode::EditorNode() {
 #ifndef ANDROID_ENABLED
 	project_identity = memnew(HBoxContainer);
 	project_identity->set_h_size_flags(Control::SIZE_EXPAND_FILL);
-	project_identity->set_custom_maximum_size(Size2(300 * EDSCALE, -1));
+	project_identity->set_stretch_ratio(0.7);
+	project_identity->set_custom_maximum_size(Size2(230 * EDSCALE, -1));
 	project_identity->set_mouse_filter(Control::MOUSE_FILTER_IGNORE);
 	title_bar->add_child(project_identity);
 
@@ -9403,11 +9382,22 @@ EditorNode::EditorNode() {
 	project_title->set_mouse_filter(Control::MOUSE_FILTER_IGNORE);
 	project_title->set_visible(can_expand && menu_type == MENU_TYPE_GLOBAL);
 	left_spacer->add_child(project_title);
+#else
+	HBoxContainer *workspace_modes = editor_main_screen->get_internal_container();
+	workspace_modes->reparent(title_bar, false);
+	// Give workspace modes priority over the project name and spacer at narrow widths.
+	workspace_modes->set_h_size_flags(Control::SIZE_EXPAND_FILL);
+	workspace_modes->set_v_size_flags(Control::SIZE_SHRINK_CENTER);
+	workspace_modes->set_stretch_ratio(2.0);
+	workspace_modes->set_custom_maximum_size(Size2(420 * EDSCALE, -1));
 #endif
 
 	Control *right_spacer = memnew(Control);
 	right_spacer->set_mouse_filter(Control::MOUSE_FILTER_IGNORE);
 	right_spacer->set_h_size_flags(Control::SIZE_EXPAND_FILL);
+#ifndef ANDROID_ENABLED
+	right_spacer->set_stretch_ratio(0.15);
+#endif
 	title_bar->add_child(right_spacer);
 
 #ifndef ANDROID_ENABLED
